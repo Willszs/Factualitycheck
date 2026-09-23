@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""
+AI Factuality Comparison Tool - Desktop GUI
+A minimalist desktop app to compare multi-turn dialogue factuality between Model A & Model B.
+Zero evaluation results are displayed on the UI; results are dispatched exclusively to mobile push.
+"""
+
+import os
+import sys
+import json
+import queue
+import logging
+import threading
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime
+
+from evaluator import FactualityEvaluator
+from notifier import Notifier
+
+# Configure file logging (so terminal or UI is never polluted with sensitive assessment reports)
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "factuality.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger("factuality.app")
+
+
+def load_config() -> dict:
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read config.json: {e}")
+    return {}
+
+
+class FactualityApp:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        self.root.title("AI Factuality Comparison Tool")
+        self.root.geometry("960x650")
+        self.root.minsize(800, 500)
+
+        # Load configurations & initialize backend engines
+        self.config = load_config()
+        self.evaluator = FactualityEvaluator(self.config)
+        self.notifier = Notifier(self.config)
+
+        # Background processing queue & worker
+        self.task_queue = queue.Queue()
+        self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self.worker_thread.start()
+
+        self._apply_styles()
+        self._build_ui()
+
+    def _apply_styles(self):
+        style = ttk.Style(self.root)
+        # Choose appropriate theme
+        if "aqua" in style.theme_names():
+            style.theme_use("aqua")
+        else:
+            style.theme_use("clam")
+
+        self.bg_color = "#f7f8fa"
+        self.card_bg = "#ffffff"
+        self.text_color = "#202124"
+        self.border_color = "#dadce0"
+        self.accent_color = "#1a73e8"
+
+        self.root.configure(bg=self.bg_color)
+
+    def _build_ui(self):
+        main_container = tk.Frame(self.root, bg=self.bg_color)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
+
+        # --- Top Area: Two Side-by-Side Text Inputs ---
+        input_panes = tk.Frame(main_container, bg=self.bg_color)
+        input_panes.pack(fill=tk.BOTH, expand=True)
+
+        input_panes.columnconfigure(0, weight=1)
+        input_panes.columnconfigure(1, weight=1)
+        input_panes.rowconfigure(0, weight=1)
+
+        # --- Model A Box ---
+        frame_a = tk.Frame(input_panes, bg=self.bg_color)
+        frame_a.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+        label_a = tk.Label(
+            frame_a,
+            text="Model A 对话记录 (带轮数)",
+            font=("SF Pro Text", 13, "bold"),
+            bg=self.bg_color,
+            fg=self.text_color,
+            anchor="w",
+        )
+        label_a.pack(fill=tk.X, pady=(0, 6))
+
+        self.txt_a = tk.Text(
+            frame_a,
+            wrap=tk.WORD,
+            font=("Menlo", 12),
+            bg=self.card_bg,
+            fg=self.text_color,
+            insertbackground="#1a73e8",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.accent_color,
+            padx=12,
+            pady=10,
+        )
+        self.txt_a.pack(fill=tk.BOTH, expand=True)
+
+        # --- Model B Box ---
+        frame_b = tk.Frame(input_panes, bg=self.bg_color)
+        frame_b.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+        label_b = tk.Label(
+            frame_b,
+            text="Model B 对话记录 (带轮数)",
+            font=("SF Pro Text", 13, "bold"),
+            bg=self.bg_color,
+            fg=self.text_color,
+            anchor="w",
+        )
+        label_b.pack(fill=tk.X, pady=(0, 6))
+
+        self.txt_b = tk.Text(
+            frame_b,
+            wrap=tk.WORD,
+            font=("Menlo", 12),
+            bg=self.card_bg,
+            fg=self.text_color,
+            insertbackground="#1a73e8",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.accent_color,
+            padx=12,
+            pady=10,
+        )
+        self.txt_b.pack(fill=tk.BOTH, expand=True)
+
+        # --- Bottom Area: Action Button & Subtle Status ---
+        bottom_bar = tk.Frame(main_container, bg=self.bg_color)
+        bottom_bar.pack(fill=tk.X, pady=(16, 0))
+
+        self.btn_submit = tk.Button(
+            bottom_bar,
+            text="发送并评估 (Cmd+Enter)",
+            font=("SF Pro Text", 14, "bold"),
+            bg=self.accent_color,
+            fg="#ffffff",
+            activebackground="#1557b0",
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            padx=32,
+            pady=10,
+            cursor="pointinghand",
+            command=self.on_submit,
+        )
+        self.btn_submit.pack(side=tk.LEFT)
+
+        # Status text only shows queuing/idle state (CRITICAL: zero evaluation result on UI)
+        self.lbl_status = tk.Label(
+            bottom_bar,
+            text="就绪",
+            font=("SF Pro Text", 11),
+            bg=self.bg_color,
+            fg="#5f6368",
+        )
+        self.lbl_status.pack(side=tk.RIGHT, padx=10)
+
+        # Keyboard shortcuts (Cmd+Return on macOS, Ctrl+Return on Windows/Linux)
+        self.root.bind("<Command-Return>", lambda event: self.on_submit())
+        self.root.bind("<Control-Return>", lambda event: self.on_submit())
+
+        # Set initial focus to Model A
+        self.txt_a.focus_set()
+
+    def on_submit(self):
+        """Immediately captures text, clears UI inputs, and dispatches to background queue."""
+        content_a = self.txt_a.get("1.0", tk.END).strip()
+        content_b = self.txt_b.get("1.0", tk.END).strip()
+
+        if not content_a and not content_b:
+            self._set_status_temp("请至少在一个输入框内粘贴对话记录", duration_ms=2500, fg="#d93025")
+            return
+
+        # 1. Immediately wipe both text inputs as requested
+        self.txt_a.delete("1.0", tk.END)
+        self.txt_b.delete("1.0", tk.END)
+
+        # 2. Reset cursor back to Model A for immediate next task
+        self.txt_a.focus_set()
+
+        # 3. Inform user that task was handed off to background
+        self._set_status_temp("已提交后台评估，请留意手机推送...", duration_ms=3000, fg="#1e8e3e")
+
+        # 4. Enqueue task for background evaluation
+        task = {
+            "content_a": content_a,
+            "content_b": content_b,
+            "time": datetime.now().strftime("%H:%M:%S"),
+        }
+        self.task_queue.put(task)
+        logger.info(f"Task queued at {task['time']} (A: {len(content_a)} chars, B: {len(content_b)} chars)")
+
+    def _set_status_temp(self, text: str, duration_ms: int = 2500, fg: str = "#5f6368"):
+        self.lbl_status.config(text=text, fg=fg)
+        self.root.after(duration_ms, lambda: self.lbl_status.config(text="就绪", fg="#5f6368"))
+
+    def _worker_loop(self):
+        """Background daemon processing tasks sequentially without freezing UI."""
+        while True:
+            try:
+                task = self.task_queue.get()
+                logger.info(f"Starting background evaluation for task queued at {task['time']}...")
+
+                # 1. Call Gemini LLM to evaluate factuality
+                summary = self.evaluator.evaluate(task["content_a"], task["content_b"])
+
+                # 2. Push result strictly to mobile notification
+                title = f"Factuality Assessment Report [{task['time']}]"
+                success = self.notifier.send(title, summary)
+
+                if success:
+                    logger.info("Assessment pushed successfully to mobile device.")
+                else:
+                    logger.warning("Push notification could not be dispatched (check config).")
+
+                self.task_queue.task_done()
+            except Exception as e:
+                logger.error(f"Error in background evaluation worker: {e}", exc_info=True)
+
+
+def main():
+    root = tk.Tk()
+    app = FactualityApp(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

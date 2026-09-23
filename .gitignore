@@ -1,0 +1,27 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Sensitive Configuration & API Keys (DO NOT COMMIT)
+config.json
+.env
+*.env
+
+# Runtime Logs
+*.log
+factuality.log
+
+# macOS metadata
+.DS_Store
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp

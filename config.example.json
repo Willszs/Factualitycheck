@@ -1,0 +1,16 @@
+{
+  "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
+  "gemini_model": "gemini-2.5-pro",
+  "push_channel": "telegram",
+  "telegram": {
+    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
+    "chat_id": "YOUR_TELEGRAM_CHAT_ID_HERE"
+  },
+  "ntfy": {
+    "topic": "YOUR_NTFY_TOPIC_HERE"
+  },
+  "bark": {
+    "device_key": "YOUR_BARK_KEY_HERE",
+    "server_url": "https://api.day.app"
+  }
+}
