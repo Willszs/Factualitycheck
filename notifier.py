@@ -48,14 +48,29 @@ class Notifier:
             logger.warning("Telegram bot_token or chat_id not configured in config.json.")
             return False
 
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        formatted_text = f"*{title}*\n\n{message}"
+        import html
 
-        # Attempt sending with Markdown first
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+        # Format as Telegram HTML for clean bold headers and reliable parsing
+        escaped_title = html.escape(title)
+        escaped_body = html.escape(message)
+        # Convert markdown headers ### to bold
+        lines = []
+        for line in escaped_body.split("\n"):
+            if line.startswith("### "):
+                lines.append(f"\n<b>{line[4:].strip()}</b>")
+            elif line.startswith("## "):
+                lines.append(f"\n<b>{line[3:].strip()}</b>")
+            else:
+                lines.append(line)
+
+        html_text = f"<b>{escaped_title}</b>\n" + "\n".join(lines).strip()
+
         payload = {
             "chat_id": chat_id,
-            "text": formatted_text,
-            "parse_mode": "Markdown",
+            "text": html_text,
+            "parse_mode": "HTML",
             "disable_web_page_preview": True,
         }
 
@@ -69,14 +84,13 @@ class Notifier:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
                 if result.get("ok"):
-                    logger.info("Telegram notification sent successfully.")
+                    logger.info("Telegram notification sent successfully (HTML).")
                     return True
                 else:
                     logger.error(f"Telegram API returned error: {result}")
         except Exception as e:
-            logger.warning(f"Telegram Markdown send failed ({e}), retrying without parse_mode...")
+            logger.warning(f"Telegram HTML send failed ({e}), retrying plain text...")
             try:
-                # Retry with plain text to avoid markdown parsing syntax errors
                 plain_payload = {
                     "chat_id": chat_id,
                     "text": f"[{title}]\n\n{message}",
