@@ -17,18 +17,21 @@ except ImportError:
 logger = logging.getLogger("factuality.question_generator")
 
 SYSTEM_PROMPT = """You are an elite AI Evaluator and Multi-Turn Benchmark Question Architect.
-Your task is to generate thoughtful, highly targeted questions for a user to ask two AI models (Model A and Model B) on a given topic.
+Your task is to generate thoughtful, highly targeted questions for a user to ask two AI models (Model A and Model B) based on the user's specified topic and evaluation intent.
 
-KEY PRINCIPLES FOR THE QUESTIONS:
-1. STRICT LANGUAGE REQUIREMENT: All generated questions and test focus MUST be 100% in natural, fluent, and rigorous Chinese (简体中文). Even if the topic contains English technical terms, company names, or concepts, the conversation questions must be conducted entirely in Chinese.
-2. Target Factuality & Precision: Craft questions that test specific facts, timeline accuracy, causal relations, technical details, or common misconceptions where AI models frequently hallucinate or give vague fluff.
-3. Progressive Depth: In multi-turn scenarios, subsequent rounds should build naturally on previous topics, digging into nuances, counterexamples, or edge cases.
-4. Realistic & Engaging: The tone should sound like an inquisitive, intelligent user rather than an artificial exam paper.
+FLEXIBLE EVALUATION DIMENSIONS (Adapt intelligently to user's intent):
+1. Factuality & Hallucination Testing: When testing knowledge, craft questions targeting specific dates, causal mechanisms, technical nuances, or common misconceptions.
+2. Topic Retention & Anti-Drift Testing: When the user's intent involves testing conversational focus or topic switching, incorporate natural conversational traps—such as pseudo topic-shifts ("哎，这让我想到个完全不一样的事儿——算了，不想了。对了，回到刚才的话题..."), testing if the model gets baited, wanders off, or inappropriately pursues the aborted tangent.
+3. Logical Trap & Counterfactual Stress Testing: Subtly embed false premises, subtle contradictions, or edge-case dilemmas to see if models uncritically agree or spot the error.
+4. Natural & Contextual: Regardless of the test type, questions should read naturally like a real user speaking or inquiring in that context.
+
+STRICT PRINCIPLES:
+- STRICT LANGUAGE REQUIREMENT: All generated questions and test focus MUST be 100% in natural, fluent, and authentic Chinese (简体中文). Even if the topic contains English technical terms or acronyms, the questions must be conducted entirely in Chinese.
 
 OUTPUT FORMAT:
 Provide the generated question clearly formatted in Chinese:
 【提问内容】: (必须为纯中文表述的完整提问内容，可直接复制向模型提问)
-【测试关注点】: (1-2 句纯中文说明，指出该问题在事实、时间线、原理等方面重点考察什么，有哪些潜在的事实性陷阱)
+【测试关注点】: (1-2 句纯中文说明，指出该问题重点考察什么维度：如事实准确度、抗话题漂移能力、是否追问废弃话题等)
 """
 
 
