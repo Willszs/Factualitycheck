@@ -39,7 +39,7 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertIn("### Model A's Flaws", SYSTEM_PROMPT)
         self.assertIn("### Model B's Flaws", SYSTEM_PROMPT)
         self.assertIn("Ground Truth", SYSTEM_PROMPT)
-        self.assertIn("Round [X]", SYSTEM_PROMPT)
+        self.assertIn("Turn [X]", SYSTEM_PROMPT)
         self.assertIn("Flawless", SYSTEM_PROMPT)
 
     @patch("requests.post")
