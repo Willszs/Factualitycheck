@@ -6,6 +6,7 @@ and automatic retry on transient Google server load spikes (503).
 """
 
 import os
+import re
 import time
 import logging
 from typing import Dict, Any, Optional
@@ -32,25 +33,16 @@ Your evaluation scope comprehensively covers:
 STRICT OUTPUT FORMAT RULES:
 - Output MUST be 100% in English.
 - TERMINOLOGY REQUIREMENT: Always refer to dialogue turns strictly as "Turn 1", "Turn 2", "Turn 3", etc. NEVER use "Round 1", "Round 2", etc.
-- The summary length must be ADAPTIVE:
-  * If there are no or few flaws, be concise, direct, and to the point.
-  * If there are multiple subtle or critical flaws, provide thorough yet focused detail.
-- You MUST format your response using EXACTLY these three sections:
-
-### The Verdict
-[State directly and decisively which model performed better, or if they are equally good/bad. Address factual reliability, topic focus, and overall coherence.]
-
-### Model A's Flaws
-[For each flaw or error Model A made, strictly specify the Turn number, what error or behavioral flaw it committed, and what the verified Ground Truth or expected focused behavior is:
-* Turn [X]: [Factual error description, topic drift, or trap failure]. Ground Truth / Expected Behavior: [The factual truth or how a focused model should have answered].
-If Model A made no errors across all turns, state: "Flawless - No flaws detected."]
-
-### Model B's Flaws
-[For each flaw or error Model B made, strictly specify the Turn number, what error or behavioral flaw it committed, and what the verified Ground Truth or expected focused behavior is:
-* Turn [X]: [Factual error description, topic drift, or trap failure]. Ground Truth / Expected Behavior: [The factual truth or how a focused model should have answered].
-If Model B made no errors across all turns, state: "Flawless - No flaws detected."]
-
-Do not include greetings, introductions, or closing remarks. Only output the requested sections.
+- CRITICAL FORMAT REQUIREMENT - NO PARAGRAPH BREAKS (DO NOT SEGMENT / 不要分段):
+  * The entire evaluation MUST be provided as a SINGLE, continuous, cohesive block of text without ANY paragraph breaks, blank lines, or markdown headers (do NOT use ### headers, do NOT use blank lines, do NOT split into paragraphs).
+  * Synthesize your analysis into one flowing paragraph covering:
+    (1) Verdict: Directly and decisively state which model performed better in truthfulness and anti-drift, or if they are comparable.
+    (2) Model A Flaws: Detail each flaw with Turn [X] and the verified Ground Truth / expected behavior (or state "Model A: Flawless - No flaws detected").
+    (3) Model B Flaws: Detail each flaw with Turn [X] and the verified Ground Truth / expected behavior (or state "Model B: Flawless - No flaws detected").
+  * Use inline structure within the single paragraph, such as:
+    Verdict: [Summary comparison]. Model A: [Turn X error and Ground Truth, or Flawless - No flaws detected]. Model B: [Turn X error and Ground Truth, or Flawless - No flaws detected].
+- The summary length must be ADAPTIVE: concise if few flaws, thorough yet compact if multiple flaws.
+- Do not include greetings, introductions, markdown headers, bullet lists, or closing remarks. Everything must be in one single unbroken paragraph.
 """
 
 
@@ -92,7 +84,7 @@ class FactualityEvaluator:
                 logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2)...")
                 result, error_msg = self._call_model(model, user_content)
                 if result:
-                    return result
+                    return self.clean_single_paragraph(result)
 
                 last_error = error_msg
                 # If Google returns temporary 503 high demand or 429
@@ -104,6 +96,24 @@ class FactualityEvaluator:
                     break
 
         return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
+
+    @staticmethod
+    def clean_single_paragraph(text: str) -> str:
+        """Sanitizes text so it is strictly a single continuous paragraph without paragraph breaks (不要分段)."""
+        if not text:
+            return ""
+        # Convert markdown headers to inline labels
+        text = re.sub(r"###\s*The Verdict[:\s]*", "Verdict: ", text, flags=re.IGNORECASE)
+        text = re.sub(r"###\s*Model A'?s?\s*Flaws?[:\s]*", "Model A: ", text, flags=re.IGNORECASE)
+        text = re.sub(r"###\s*Model B'?s?\s*Flaws?[:\s]*", "Model B: ", text, flags=re.IGNORECASE)
+        text = re.sub(r"###\s*", "", text)
+        # Convert bullet points to inline delimiters
+        text = re.sub(r"(\r?\n)\s*[\*\-•]\s*", " | ", text)
+        # Replace remaining newlines/carriage returns with space
+        text = re.sub(r"[\r\n]+", " ", text)
+        # Collapse multiple spaces into one
+        text = re.sub(r"\s{2,}", " ", text).strip()
+        return text
 
     def _call_model(self, model_name: str, user_content: str) -> tuple[Optional[str], str]:
         # 1. Try google-genai SDK first

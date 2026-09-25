@@ -35,12 +35,21 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertIn("Gemini API Key", res)
 
     def test_prompt_structure_contains_required_sections(self):
-        self.assertIn("### The Verdict", SYSTEM_PROMPT)
-        self.assertIn("### Model A's Flaws", SYSTEM_PROMPT)
-        self.assertIn("### Model B's Flaws", SYSTEM_PROMPT)
+        self.assertIn("Verdict", SYSTEM_PROMPT)
+        self.assertIn("Model A", SYSTEM_PROMPT)
+        self.assertIn("Model B", SYSTEM_PROMPT)
         self.assertIn("Ground Truth", SYSTEM_PROMPT)
         self.assertIn("Turn [X]", SYSTEM_PROMPT)
         self.assertIn("Flawless", SYSTEM_PROMPT)
+        self.assertIn("NO PARAGRAPH BREAKS", SYSTEM_PROMPT)
+
+    def test_clean_single_paragraph(self):
+        multiline_text = "### The Verdict\nModel A was better.\n\n### Model A's Flaws\n* Turn 1: Mistake. Ground Truth: Fact.\n\n### Model B's Flaws\nFlawless - No flaws detected."
+        cleaned = FactualityEvaluator.clean_single_paragraph(multiline_text)
+        self.assertNotIn("\n", cleaned)
+        self.assertIn("Verdict: Model A was better.", cleaned)
+        self.assertIn("Turn 1: Mistake", cleaned)
+        self.assertIn("Ground Truth: Fact", cleaned)
 
     @patch("requests.post")
     def test_telegram_notifier_success(self, mock_post):

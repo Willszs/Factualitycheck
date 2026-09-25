@@ -4,6 +4,7 @@ Supports Telegram, ntfy, Bark, Pushover, and Generic Webhooks.
 Includes robust SSL and retry handling for VPN/proxy environments.
 """
 
+import re
 import json
 import logging
 import html
@@ -74,24 +75,21 @@ class Notifier:
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-        # Format as Telegram HTML for clean bold headers
-        escaped_title = html.escape(title)
-        escaped_body = html.escape(message)
-        lines = []
-        for line in escaped_body.split("\n"):
-            if line.startswith("### "):
-                lines.append(f"\n<b>{line[4:].strip()}</b>")
-            elif line.startswith("## "):
-                lines.append(f"\n<b>{line[3:].strip()}</b>")
-            else:
-                lines.append(line)
+        # Format as strictly unsegmented text without paragraph breaks (不要分段)
+        clean_body = re.sub(r"[\r\n]+", " ", message).strip()
+        clean_body = re.sub(r"\s{2,}", " ", clean_body)
 
-        html_text = f"<b>{escaped_title}</b>\n" + "\n".join(lines).strip()
+        escaped_title = html.escape(title)
+        escaped_body = html.escape(clean_body)
+
+        # Single paragraph delivery
+        html_text = f"<b>{escaped_title}</b>\n{escaped_body}".strip()
+        plain_text = f"[{title}]\n{clean_body}".strip()
 
         # 1. Prefer requests library (handles system proxies & certs cleanly)
         if requests is not None:
             # Try HTML first
-            for parse_mode, text in [("HTML", html_text), (None, f"[{title}]\n\n{message}")]:
+            for parse_mode, text in [("HTML", html_text), (None, plain_text)]:
                 payload = {
                     "chat_id": chat_id,
                     "text": text,
@@ -118,10 +116,10 @@ class Notifier:
                         logger.warning(f"Telegram retry failed: {retry_err}")
 
         # 2. Fallback to urllib with safe SSL context
-        return self._send_telegram_urllib(url, chat_id, title, message, html_text)
+        return self._send_telegram_urllib(url, chat_id, title, plain_text, html_text)
 
-    def _send_telegram_urllib(self, url: str, chat_id: str, title: str, message: str, html_text: str) -> bool:
-        for parse_mode, text in [("HTML", html_text), (None, f"[{title}]\n\n{message}")]:
+    def _send_telegram_urllib(self, url: str, chat_id: str, title: str, plain_text: str, html_text: str) -> bool:
+        for parse_mode, text in [("HTML", html_text), (None, plain_text)]:
             payload = {
                 "chat_id": chat_id,
                 "text": text,
