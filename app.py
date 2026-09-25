@@ -101,13 +101,13 @@ class FactualityApp:
         main_container = tk.Frame(self.root, bg=self.bg_color)
         main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
 
-        # --- Top Section: 3rd Input Box for Topic (对话主题) ---
+        # --- Top Section: 3rd Input Box for Topic (粘贴3) ---
         topic_frame = tk.Frame(main_container, bg=self.bg_color)
         topic_frame.pack(fill=tk.X, pady=(0, 14))
 
         label_topic = tk.Label(
             topic_frame,
-            text="对话主题",
+            text="粘贴3",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
@@ -293,7 +293,7 @@ class FactualityApp:
         """Immediately captures topic, clears input, and asks duration on Telegram."""
         topic = self.txt_topic.get().strip()
         if not topic:
-            self._set_status_temp("请先输入对话主题", duration_ms=2500, fg="#d93025")
+            self._set_status_temp("请先在【粘贴3】输入主题", duration_ms=2500, fg="#d93025")
             return
 
         # 1. Immediately wipe topic input
