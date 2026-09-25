@@ -78,6 +78,21 @@ class TestFactualityComponents(unittest.TestCase):
         gen = QuestionGenerator(self.sample_config)
         self.assertEqual(gen.primary_model, "gemini-3.6-flash")
 
+    def test_question_generator_system_prompt_and_cleaning(self):
+        from question_generator import get_system_prompt
+        prompt = get_system_prompt()
+        self.assertIn("TEMPORAL INTEGRITY & REAL-TIME GROUNDING", prompt)
+        self.assertIn("NEVER hallucinate an event that concluded in the past", prompt)
+        self.assertIn("事实准确性", prompt)
+        self.assertIn("结构化表达", prompt)
+        self.assertIn("价值评估", prompt)
+
+        gen = QuestionGenerator(self.sample_config)
+        dirty_output = "好的，这是为您设计的第 1 轮提问：\n\n【提问内容】: 测试问题\n【测试关注点】: 测试关注点"
+        cleaned = gen._clean_output(dirty_output)
+        self.assertTrue(cleaned.startswith("【提问内容】:"))
+        self.assertNotIn("好的，这是为您设计的", cleaned)
+
     def test_telegram_bot_state_flow(self):
         bot = TelegramBotService(self.sample_config)
         self.assertEqual(bot.state, "IDLE")
