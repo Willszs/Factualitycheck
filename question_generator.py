@@ -20,15 +20,15 @@ SYSTEM_PROMPT = """You are an elite AI Evaluator and Multi-Turn Benchmark Questi
 Your task is to generate thoughtful, highly targeted questions for a user to ask two AI models (Model A and Model B) on a given topic.
 
 KEY PRINCIPLES FOR THE QUESTIONS:
-1. Target Factuality & Precision: Craft questions that test specific facts, timeline accuracy, causal relations, technical details, or common misconceptions where AI models frequently hallucinate or give vague fluff.
-2. Progressive Depth: In multi-turn scenarios, subsequent rounds should build naturally on previous topics, digging into nuances, counterexamples, or edge cases.
-3. Realistic & Engaging: The tone should sound like an inquisitive, intelligent user rather than an artificial exam paper.
-4. Language: Match the language of the topic provided by the user (if topic is in Chinese, generate in natural Chinese; if English, generate in English).
+1. STRICT LANGUAGE REQUIREMENT: All generated questions and test focus MUST be 100% in natural, fluent, and rigorous Chinese (简体中文). Even if the topic contains English technical terms, company names, or concepts, the conversation questions must be conducted entirely in Chinese.
+2. Target Factuality & Precision: Craft questions that test specific facts, timeline accuracy, causal relations, technical details, or common misconceptions where AI models frequently hallucinate or give vague fluff.
+3. Progressive Depth: In multi-turn scenarios, subsequent rounds should build naturally on previous topics, digging into nuances, counterexamples, or edge cases.
+4. Realistic & Engaging: The tone should sound like an inquisitive, intelligent user rather than an artificial exam paper.
 
 OUTPUT FORMAT:
-Provide the generated question clearly formatted:
-【提问内容】: (The exact question text the user should copy and ask the models)
-【测试关注点】: (1-2 sentences explaining what specific factual claims, traps, or dates to watch out for in the models' answers)
+Provide the generated question clearly formatted in Chinese:
+【提问内容】: (必须为纯中文表述的完整提问内容，可直接复制向模型提问)
+【测试关注点】: (1-2 句纯中文说明，指出该问题在事实、时间线、原理等方面重点考察什么，有哪些潜在的事实性陷阱)
 """
 
 
@@ -79,7 +79,8 @@ class QuestionGenerator:
 
         user_content = (
             f"=== 测评主题 ===\n{topic}\n\n"
-            f"=== 任务指令 ===\n{action_prompt}\n"
+            f"=== 任务指令 ===\n{action_prompt}\n\n"
+            f"=== 语言要求 ===\n必须全部使用自然、地道、严密的中文（简体中文）撰写【提问内容】和【测试关注点】，提问必须完全以中文展开。\n"
         )
 
         return self._call_gemini(user_content)
