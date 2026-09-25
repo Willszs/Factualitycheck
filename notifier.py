@@ -1,15 +1,39 @@
 """
 Mobile Push Notification Dispatcher.
 Supports Telegram, ntfy, Bark, Pushover, and Generic Webhooks.
+Includes robust SSL and retry handling for VPN/proxy environments.
 """
 
 import json
 import logging
+import html
+import ssl
 import urllib.request
 import urllib.parse
 from typing import Dict, Any, Optional
 
+try:
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    import certifi
+    CA_FILE = certifi.where()
+except ImportError:
+    CA_FILE = None
+
 logger = logging.getLogger("factuality.notifier")
+
+
+def _get_ssl_context():
+    """Returns an SSL context that handles self-signed proxy certs gracefully."""
+    try:
+        if CA_FILE:
+            return ssl.create_default_context(cafile=CA_FILE)
+        return ssl.create_default_context()
+    except Exception:
+        return ssl._create_unverified_context()
 
 
 class Notifier:
@@ -42,20 +66,17 @@ class Notifier:
     def _send_telegram(self, title: str, message: str) -> bool:
         tg_cfg = self.config.get("telegram", {})
         bot_token = tg_cfg.get("bot_token", "").strip()
-        chat_id = tg_cfg.get("chat_id", "").strip()
+        chat_id = str(tg_cfg.get("chat_id", "")).strip()
 
         if not bot_token or not chat_id or "YOUR_" in bot_token:
             logger.warning("Telegram bot_token or chat_id not configured in config.json.")
             return False
 
-        import html
-
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-        # Format as Telegram HTML for clean bold headers and reliable parsing
+        # Format as Telegram HTML for clean bold headers
         escaped_title = html.escape(title)
         escaped_body = html.escape(message)
-        # Convert markdown headers ### to bold
         lines = []
         for line in escaped_body.split("\n"):
             if line.startswith("### "):
@@ -67,48 +88,65 @@ class Notifier:
 
         html_text = f"<b>{escaped_title}</b>\n" + "\n".join(lines).strip()
 
-        payload = {
-            "chat_id": chat_id,
-            "text": html_text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
+        # 1. Prefer requests library (handles system proxies & certs cleanly)
+        if requests is not None:
+            # Try HTML first
+            for parse_mode, text in [("HTML", html_text), (None, f"[{title}]\n\n{message}")]:
+                payload = {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "disable_web_page_preview": True,
+                }
+                if parse_mode:
+                    payload["parse_mode"] = parse_mode
 
-        try:
+                try:
+                    resp = requests.post(url, json=payload, timeout=15)
+                    if resp.status_code == 200 and resp.json().get("ok"):
+                        logger.info(f"Telegram notification sent successfully (mode: {parse_mode or 'plain'}).")
+                        return True
+                    else:
+                        logger.warning(f"Telegram requests.post returned {resp.status_code}: {resp.text}")
+                except Exception as req_err:
+                    logger.warning(f"Telegram requests.post error ({req_err}), trying with verify=False...")
+                    try:
+                        resp = requests.post(url, json=payload, verify=False, timeout=15)
+                        if resp.status_code == 200 and resp.json().get("ok"):
+                            logger.info("Telegram notification sent successfully (unverified SSL).")
+                            return True
+                    except Exception as retry_err:
+                        logger.warning(f"Telegram retry failed: {retry_err}")
+
+        # 2. Fallback to urllib with safe SSL context
+        return self._send_telegram_urllib(url, chat_id, title, message, html_text)
+
+    def _send_telegram_urllib(self, url: str, chat_id: str, title: str, message: str, html_text: str) -> bool:
+        for parse_mode, text in [("HTML", html_text), (None, f"[{title}]\n\n{message}")]:
+            payload = {
+                "chat_id": chat_id,
+                "text": text,
+                "disable_web_page_preview": True,
+            }
+            if parse_mode:
+                payload["parse_mode"] = parse_mode
+
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-                if result.get("ok"):
-                    logger.info("Telegram notification sent successfully (HTML).")
-                    return True
-                else:
-                    logger.error(f"Telegram API returned error: {result}")
-        except Exception as e:
-            logger.warning(f"Telegram HTML send failed ({e}), retrying plain text...")
-            try:
-                plain_payload = {
-                    "chat_id": chat_id,
-                    "text": f"[{title}]\n\n{message}",
-                }
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(plain_payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    result = json.loads(resp.read().decode("utf-8"))
-                    if result.get("ok"):
-                        logger.info("Telegram notification sent (plain text).")
-                        return True
-            except Exception as retry_err:
-                logger.error(f"Failed to send Telegram notification: {retry_err}")
-                return False
+
+            # Try default SSL context, then unverified SSL context if VPN/proxy MITM blocks
+            for ctx in [_get_ssl_context(), ssl._create_unverified_context()]:
+                try:
+                    with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                        result = json.loads(resp.read().decode("utf-8"))
+                        if result.get("ok"):
+                            logger.info("Telegram notification sent successfully via urllib.")
+                            return True
+                except Exception as e:
+                    logger.warning(f"Urllib Telegram send failed ({e}), trying next fallback...")
 
         return False
 
@@ -128,15 +166,16 @@ class Notifier:
             "Content-Type": "text/plain; charset=utf-8",
         }
 
+        if requests is not None:
+            try:
+                resp = requests.post(url, data=message.encode("utf-8"), headers={"Title": title}, timeout=15)
+                return resp.status_code in (200, 201)
+            except Exception as e:
+                logger.warning(f"ntfy via requests failed ({e}), trying urllib...")
+
         try:
-            req = urllib.request.Request(
-                url,
-                data=message.encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                logger.info(f"ntfy notification status: {resp.status}")
+            req = urllib.request.Request(url, data=message.encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=15, context=_get_ssl_context()) as resp:
                 return resp.status in (200, 201)
         except Exception as e:
             logger.error(f"Failed to send ntfy notification: {e}")
@@ -159,6 +198,13 @@ class Notifier:
             "group": "FactualityCheck",
         }
 
+        if requests is not None:
+            try:
+                resp = requests.post(url, json=payload, timeout=15)
+                return resp.status_code == 200
+            except Exception:
+                pass
+
         try:
             req = urllib.request.Request(
                 url,
@@ -166,8 +212,7 @@ class Notifier:
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                logger.info("Bark notification sent successfully.")
+            with urllib.request.urlopen(req, timeout=15, context=_get_ssl_context()) as resp:
                 return resp.status == 200
         except Exception as e:
             logger.error(f"Failed to send Bark notification: {e}")
@@ -182,17 +227,19 @@ class Notifier:
             logger.warning("Pushover token or user not configured.")
             return False
 
-        data = urllib.parse.urlencode({
-            "token": token,
-            "user": user,
-            "title": title,
-            "message": message,
-        }).encode("utf-8")
+        data = {"token": token, "user": user, "title": title, "message": message}
+
+        if requests is not None:
+            try:
+                resp = requests.post("https://api.pushover.net/1/messages.json", data=data, timeout=15)
+                return resp.status_code == 200
+            except Exception:
+                pass
 
         try:
-            req = urllib.request.Request("https://api.pushover.net/1/messages.json", data=data, method="POST")
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                logger.info("Pushover notification sent successfully.")
+            encoded_data = urllib.parse.urlencode(data).encode("utf-8")
+            req = urllib.request.Request("https://api.pushover.net/1/messages.json", data=encoded_data, method="POST")
+            with urllib.request.urlopen(req, timeout=15, context=_get_ssl_context()) as resp:
                 return resp.status == 200
         except Exception as e:
             logger.error(f"Failed to send Pushover notification: {e}")
@@ -208,6 +255,13 @@ class Notifier:
 
         payload = {"title": title, "summary": message}
 
+        if requests is not None:
+            try:
+                resp = requests.post(url, json=payload, timeout=15)
+                return resp.status_code in (200, 204)
+            except Exception:
+                pass
+
         try:
             req = urllib.request.Request(
                 url,
@@ -215,8 +269,7 @@ class Notifier:
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                logger.info("Webhook notification sent successfully.")
+            with urllib.request.urlopen(req, timeout=15, context=_get_ssl_context()) as resp:
                 return resp.status in (200, 204)
         except Exception as e:
             logger.error(f"Failed to send Webhook notification: {e}")
