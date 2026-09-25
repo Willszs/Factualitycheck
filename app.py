@@ -45,7 +45,7 @@ def load_config() -> dict:
 class FactualityApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("AI Factuality Comparison Tool")
+        self.root.title("发送至手机")
         self.root.geometry("960x650")
         self.root.minsize(800, 500)
 
@@ -96,7 +96,7 @@ class FactualityApp:
 
         label_a = tk.Label(
             frame_a,
-            text="Model A 对话记录 (带轮数)",
+            text="粘贴1",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
@@ -126,7 +126,7 @@ class FactualityApp:
 
         label_b = tk.Label(
             frame_b,
-            text="Model B 对话记录 (带轮数)",
+            text="粘贴2",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
@@ -156,7 +156,7 @@ class FactualityApp:
 
         self.btn_submit = tk.Button(
             bottom_bar,
-            text="发送并评估 (Cmd+Enter)",
+            text="发送到手机",
             font=("SF Pro Text", 14, "bold"),
             bg=self.accent_color,
             fg="#ffffff",
@@ -193,7 +193,7 @@ class FactualityApp:
         content_b = self.txt_b.get("1.0", tk.END).strip()
 
         if not content_a and not content_b:
-            self._set_status_temp("请至少在一个输入框内粘贴对话记录", duration_ms=2500, fg="#d93025")
+            self._set_status_temp("请至少输入内容", duration_ms=2500, fg="#d93025")
             return
 
         # 1. Immediately wipe both text inputs as requested
@@ -204,7 +204,7 @@ class FactualityApp:
         self.txt_a.focus_set()
 
         # 3. Inform user that task was handed off to background
-        self._set_status_temp("已提交后台评估，请留意手机推送...", duration_ms=3000, fg="#1e8e3e")
+        self._set_status_temp("已发送，请留意手机...", duration_ms=3000, fg="#1e8e3e")
 
         # 4. Enqueue task for background evaluation
         task = {
