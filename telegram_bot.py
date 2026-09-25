@@ -180,8 +180,10 @@ class TelegramBotService:
             elif self.state == "WAITING_DURATION":
                 self._handle_duration_reply(text)
             else:
-                # User sent arbitrary text -> trigger typing assistant flow!
-                self._handle_typing_prompt(text)
+                self._send_message(
+                    "💡 提示：自动打字功能专属于【事实排查报告】推送场景。\n"
+                    "请在电脑端将两个 AI 模型的对话分别填入【粘贴1】和【粘贴2】，点击【发送到手机】即可在此接收报告并使用自动打字。"
+                )
 
         # 2. Handle callback queries from inline buttons
         elif "callback_query" in update:
@@ -195,26 +197,6 @@ class TelegramBotService:
             message_id = query.get("message", {}).get("message_id")
             self._answer_callback_query(query_id)
             self._handle_callback_data(data, message_id)
-
-    def _handle_typing_prompt(self, text: str):
-        """User forwarded or pasted text from mobile to be typed on computer."""
-        self.pending_typing_text = text
-        preview = text if len(text) <= 120 else text[:115] + "..."
-
-        msg = (
-            f"⌨️ <b>收到待打字内容（共 {len(text)} 字）：</b>\n"
-            f"<blockquote>{html.escape(preview)}</blockquote>\n\n"
-            f"请确认：<b>您的电脑光标已经在目标输入框内了吗？</b>\n"
-            f"<i>（点击下方【确定】后，将有 3 秒倒计时给您准备，随后在电脑当前焦点处模拟真人打字）</i>"
-        )
-
-        keyboard = [
-            [
-                {"text": "✅ 确定，开始模拟打字", "callback_data": "action_start_typing"},
-                {"text": "❌ 取消", "callback_data": "action_cancel_typing"},
-            ]
-        ]
-        self._send_message(msg, reply_markup={"inline_keyboard": keyboard})
 
     def _handle_duration_reply(self, text: str):
         """User replied with duration/rounds."""
