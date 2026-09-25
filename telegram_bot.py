@@ -1,7 +1,8 @@
 """
 Interactive Telegram Bot Service for Factuality Check Tool.
-Handles bidirectional communication: polling user replies and inline keyboard actions
-to orchestrate multi-turn question design and regeneration.
+Handles bidirectional communication:
+1. Multi-turn question design and regeneration (Topic -> Rounds -> Questions with inline buttons).
+2. Remote Human-like Typing Simulator (Copy text on phone -> Bot asks confirmation -> Types on Mac like human).
 """
 
 import re
@@ -18,6 +19,7 @@ except ImportError:
     requests = None
 
 from question_generator import QuestionGenerator
+from typer import HumanTyper
 
 logger = logging.getLogger("factuality.telegram_bot")
 
@@ -31,13 +33,17 @@ class TelegramBotService:
 
         self.generator = QuestionGenerator(config)
 
-        # Session state
+        # Topic & Benchmark Session state
         self.state = "IDLE"  # IDLE, WAITING_DURATION, INTERACTIVE_QUESTIONS
         self.topic = ""
         self.total_rounds = 3
         self.current_round = 1
         self.duration_desc = ""
         self.history_questions = []
+
+        # Typing simulation buffer
+        self.pending_typing_text = ""
+        self.is_typing_active = False
 
         self.last_update_id = 0
         self.is_running = False
@@ -123,6 +129,9 @@ class TelegramBotService:
             # Check if waiting for duration
             if self.state == "WAITING_DURATION":
                 self._handle_duration_reply(text)
+            else:
+                # User sent arbitrary text -> trigger typing assistant flow!
+                self._handle_typing_prompt(text)
 
         # 2. Handle callback queries from inline buttons
         elif "callback_query" in update:
@@ -133,19 +142,39 @@ class TelegramBotService:
 
             query_id = query.get("id")
             data = query.get("data", "")
+            message_id = query.get("message", {}).get("message_id")
             self._answer_callback_query(query_id)
-            self._handle_callback_data(data, query.get("message", {}).get("message_id"))
+            self._handle_callback_data(data, message_id)
+
+    def _handle_typing_prompt(self, text: str):
+        """User forwarded or pasted text from mobile to be typed on computer."""
+        self.pending_typing_text = text
+        preview = text if len(text) <= 120 else text[:115] + "..."
+
+        msg = (
+            f"⌨️ <b>收到待打字内容（共 {len(text)} 字）：</b>\n"
+            f"<blockquote>{html.escape(preview)}</blockquote>\n\n"
+            f"请确认：<b>您的电脑光标已经在目标输入框内了吗？</b>\n"
+            f"<i>（点击下方【确定】后，将有 3 秒倒计时给您准备，随后在电脑当前焦点处模拟真人打字）</i>"
+        )
+
+        keyboard = [
+            [
+                {"text": "✅ 确定，开始模拟打字", "callback_data": "action_start_typing"},
+                {"text": "❌ 取消", "callback_data": "action_cancel_typing"},
+            ]
+        ]
+        self._send_message(msg, reply_markup={"inline_keyboard": keyboard})
 
     def _handle_duration_reply(self, text: str):
         """User replied with duration/rounds."""
         self.duration_desc = text
-        # Extract number of rounds if possible
         numbers = re.findall(r"\d+", text)
         if numbers:
             rounds = int(numbers[0])
-            self.total_rounds = max(1, min(rounds, 10))  # Bound between 1 and 10
+            self.total_rounds = max(1, min(rounds, 10))
         else:
-            self.total_rounds = 3  # Default 3 rounds
+            self.total_rounds = 3
 
         self.state = "INTERACTIVE_QUESTIONS"
         self.current_round = 1
@@ -153,10 +182,9 @@ class TelegramBotService:
         self._send_chat_action("typing")
         self._send_message(
             f"✅ 收到！已规划 <b>{self.total_rounds} 轮</b>深入测评。\n"
-            f"正在针对主题【{html.escape(self.topic)}】设计第 1 轮高精度事实性测试问题..."
+            f"正在针对主题【{html.escape(self.topic)}】设计第 1 轮测试问题..."
         )
 
-        # Generate Round 1 question
         q_text = self.generator.generate_question(
             topic=self.topic,
             current_round=1,
@@ -194,11 +222,47 @@ class TelegramBotService:
 
     def _handle_callback_data(self, data: str, message_id: Optional[int]):
         """Handles inline button clicks."""
-        if data == "action_change_q":
+        # --- Typing Simulation Actions ---
+        if data == "action_start_typing":
+            if not self.pending_typing_text:
+                self._send_message("⚠️ 没有待输入的文本，请先发送一段文本给我。")
+                return
+
+            if self.is_typing_active:
+                self._send_message("⚠️ 当前正在进行打字任务，请稍候...")
+                return
+
+            text_to_type = self.pending_typing_text
+            self.pending_typing_text = ""
+
+            countdown_msg = (
+                f"⏳ <b>倒计时 3 秒后开始在电脑上打字！</b>\n"
+                f"请把鼠标光标定位在目标输入框中，不要切换窗口..."
+            )
+            if message_id:
+                self._edit_message_text(message_id, countdown_msg)
+            else:
+                self._send_message(countdown_msg)
+
+            threading.Thread(
+                target=self._execute_typing_task,
+                args=(text_to_type, message_id),
+                daemon=True,
+            ).start()
+
+        elif data == "action_cancel_typing":
+            self.pending_typing_text = ""
+            cancel_msg = "❌ <b>已取消打字任务。</b>"
+            if message_id:
+                self._edit_message_text(message_id, cancel_msg)
+            else:
+                self._send_message(cancel_msg)
+
+        # --- Question Design Actions ---
+        elif data == "action_change_q":
             self._send_chat_action("typing")
             self._send_message(f"🔄 正在为您换一个全新角度的第 {self.current_round} 轮提问...")
 
-            # Generate alternative question
             new_q = self.generator.generate_question(
                 topic=self.topic,
                 current_round=self.current_round,
@@ -236,6 +300,19 @@ class TelegramBotService:
         elif data == "action_finish":
             self._finish_flow()
 
+    def _execute_typing_task(self, text: str, message_id: Optional[int]):
+        """Runs typing simulation in background and notifies user on completion."""
+        self.is_typing_active = True
+        try:
+            HumanTyper.type_like_human(text, countdown_secs=3)
+            done_msg = f"🎉 <b>模拟打字已完成！</b>（共输入 {len(text)} 字）"
+            self._send_message(done_msg)
+        except Exception as e:
+            logger.error(f"Typing execution failed: {e}")
+            self._send_message(f"⚠️ 模拟打字出错: {e}")
+        finally:
+            self.is_typing_active = False
+
     def _finish_flow(self):
         self.state = "IDLE"
         finish_msg = (
@@ -262,6 +339,29 @@ class TelegramBotService:
             for verify in [True, False]:
                 try:
                     resp = requests.post(url, json=payload, timeout=15, verify=verify)
+                    if resp.status_code == 200:
+                        return True
+                except Exception:
+                    if not verify:
+                        break
+        return False
+
+    def _edit_message_text(self, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
+        url = f"https://api.telegram.org/bot{self.bot_token}/editMessageText"
+        payload = {
+            "chat_id": self.target_chat_id,
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+
+        if requests is not None:
+            for verify in [True, False]:
+                try:
+                    resp = requests.post(url, json=payload, timeout=10, verify=verify)
                     if resp.status_code == 200:
                         return True
                 except Exception:
