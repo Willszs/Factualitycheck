@@ -34,7 +34,12 @@ class HumanTyper:
             cls._cg.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
             cls._cg.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
 
-            cls._cg.CGEventKeyboardSetUnicodeString.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_wchar_p]
+            # UniChar is a 16-bit unsigned integer (UTF-16 code unit), NOT a 32-bit wchar_t
+            cls._cg.CGEventKeyboardSetUnicodeString.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_uint32,
+                ctypes.POINTER(ctypes.c_uint16),
+            ]
             cls._cg.CGEventKeyboardSetUnicodeString.restype = None
 
             cls._cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
@@ -72,23 +77,43 @@ class HumanTyper:
 
     @classmethod
     def _post_unicode_char(cls, char: str) -> bool:
-        """Sends a single Unicode character to the active window using native CoreGraphics."""
+        """
+        Sends a single character to the active window using native CoreGraphics.
+        Uses 16-bit UTF-16 UniChar code units and posts ONLY to kCGHIDEventTap (0) once.
+        Unicode string is set strictly on KeyDown to prevent duplicate character insertions.
+        """
         cls._init_native()
         if not cls._cg or not cls._cf:
             return False
 
         try:
-            # Post to HID event tap (0) and session event tap (1)
-            for tap in [0, 1]:
-                evt_down = cls._cg.CGEventCreateKeyboardEvent(None, 0, True)
-                cls._cg.CGEventKeyboardSetUnicodeString(evt_down, len(char), char)
-                cls._cg.CGEventPost(tap, evt_down)
+            # Special handling for newline / Return key (macOS virtual keycode 36)
+            if char == "\n" or char == "\r":
+                evt_down = cls._cg.CGEventCreateKeyboardEvent(None, 36, True)
+                cls._cg.CGEventPost(0, evt_down)
                 cls._cf.CFRelease(evt_down)
 
-                evt_up = cls._cg.CGEventCreateKeyboardEvent(None, 0, False)
-                cls._cg.CGEventKeyboardSetUnicodeString(evt_up, len(char), char)
-                cls._cg.CGEventPost(tap, evt_up)
+                evt_up = cls._cg.CGEventCreateKeyboardEvent(None, 36, False)
+                cls._cg.CGEventPost(0, evt_up)
                 cls._cf.CFRelease(evt_up)
+                return True
+
+            # Convert to UTF-16 code units (UniChar = uint16)
+            utf16_bytes = char.encode("utf-16le")
+            unichar_count = len(utf16_bytes) // 2
+            UniCharArray = ctypes.c_uint16 * unichar_count
+            unichars = UniCharArray.from_buffer_copy(utf16_bytes)
+
+            # 1. KeyDown WITH Unicode string
+            evt_down = cls._cg.CGEventCreateKeyboardEvent(None, 0, True)
+            cls._cg.CGEventKeyboardSetUnicodeString(evt_down, unichar_count, unichars)
+            cls._cg.CGEventPost(0, evt_down)  # kCGHIDEventTap = 0 ONLY (never loop taps)
+            cls._cf.CFRelease(evt_down)
+
+            # 2. KeyUp WITHOUT Unicode string (pure key release, prevents 2x typing)
+            evt_up = cls._cg.CGEventCreateKeyboardEvent(None, 0, False)
+            cls._cg.CGEventPost(0, evt_up)  # kCGHIDEventTap = 0 ONLY
+            cls._cf.CFRelease(evt_up)
             return True
         except Exception as e:
             logger.debug(f"Native post error: {e}")
