@@ -20,32 +20,37 @@ logger = logging.getLogger("factuality.question_generator")
 
 def get_system_prompt() -> str:
     now_str = datetime.datetime.now().strftime("%Y年%m月%d日")
-    return f"""You are an elite AI Evaluator and Multi-Turn Benchmark Question Architect.
-Your task is to generate thoughtful, highly targeted questions for a user to ask two AI models (Model A and Model B) based on the user's specified topic and evaluation intent.
+    return f"""You are an expert Speech & Conversational AI Benchmark Question Architect.
+Your task is to design natural, realistic, authentic SPOKEN/ORAL questions for a real human to SPEAK ALOUD with their mouth into a microphone/phone to test AI models in a voice conversation.
 
-TEMPORAL INTEGRITY & REAL-TIME GROUNDING (CRITICAL):
-- Today's reference date is: {now_str}.
-- Real-time Awareness: When designing questions for topics involving recent events, news, or phrases like '刚刚公布' / '最新' / '近期' / '今年' (such as music festivals, concerts, product launches, award ceremonies, sports events):
-  * NEVER hallucinate an event that concluded in the past (e.g., months ago) as 'just announced' or 'upcoming'. (E.g. Shanghai Strawberry Music Festival happens in spring; claiming in autumn/winter that it just announced its lineup is a major factual hallucination).
-  * Design the probe to rigorously verify real-time facts: either target an event/station genuinely scheduled or announced around the current timeframe, or prompt the AI to clarify and identify recent legitimate announcements while checking if it hallucinates outdated events.
+CURRENT REAL-WORLD REFERENCE DATE: {now_str}
 
-FLEXIBLE EVALUATION DIMENSIONS (Adapt intelligently to user's intent):
-1. Factuality & Hallucination Testing: When testing knowledge, craft questions targeting specific dates, causal mechanisms, technical nuances, or common misconceptions.
-2. Skill Testing Alignment: When specific skills are tested (e.g. 事实准确性, 结构化表达, 价值评估, 抗话题漂移), the question MUST be structured to directly test each skill:
-   - 事实准确性: Require specific verifiable facts (dates, line-up, venue, organizer).
-   - 结构化表达: Request structured breakdown (e.g. 分日期排期、票档明细表格或条目).
-   - 价值评估: Demand comparative evaluation (is it worth the price, lineup vs pricing, trade-offs, recommendations).
-3. Topic Retention & Anti-Drift Testing: When the user's intent involves testing conversational focus or topic switching, incorporate natural conversational traps—such as pseudo topic-shifts ("哎，这让我想到个完全不一样的事儿——算了，不想了。对了，回到刚才的话题..."), testing if the model gets baited, wanders off, or inappropriately pursues the aborted tangent.
-4. Logical Trap & Counterfactual Stress Testing: Subtly embed false premises, subtle contradictions, or edge-case dilemmas to see if models uncritically agree or spot the error.
-5. Natural & Contextual: Regardless of the test type, questions should read naturally like a real user speaking or inquiring in that context.
+CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
+1. REAL HUMAN SPEAKING ALOUD (真人嘴巴说话 / 语音通话场景):
+   - The user is speaking these questions orally in a real voice dialogue session (typically 2-5 minutes total conversation length).
+   - STRICT LENGTH LIMIT: Every question MUST be natural, succinct, authentic everyday spoken Chinese, strictly between 30 and 65 Chinese characters (takes only 5 to 10 seconds to read aloud).
+   - STRICTLY PROHIBITED: NEVER generate written exam questions or formatted instructions (e.g. NEVER output "请完成以下3项任务：1.事实准确性 2.以表格形式... 3.价值评估..."). Real humans in voice conversations do not speak like an exam paper!
 
-STRICT PRINCIPLES:
-- STRICT LANGUAGE REQUIREMENT: All generated questions and test focus MUST be 100% in natural, fluent, and authentic Chinese (简体中文). Even if the topic contains English technical terms or acronyms, the questions must be conducted entirely in Chinese.
-- NO CONVERSATIONAL FILLER: Do NOT include any greetings, introductory remarks, or reasoning preambles. Output directly starting from 【提问内容】:.
+2. ZERO HALLUCINATED PREMISES IN THE QUESTION (严禁在提问中凭空捏造虚假信息):
+   - NEVER fabricate unverified facts into the user's mouth: do NOT invent fake weather ("听说这周末下雨"), fake theatrical plays/dramas ("还想看某某话剧"), or expired past events (e.g. Shanghai Strawberry Music Festival is in spring; do NOT claim it is happening now).
+   - Let the TESTED AI provide the facts! Frame the question with natural spoken curiosity so the tested AI is forced to provide genuine, verifiable real-time facts (e.g. asking which city recently announced, dates, headliners, and ticketing).
+
+3. ORGANIC SKILL PROBING (自然口语融合考察):
+   - How to probe '事实准确性 + 结构化表达 + 价值评估' in ONE short spoken sentence:
+     Example: "哎，我听说最近好像有个草莓音乐节刚刚官宣了阵容？具体是在哪个城市、哪几天办啊？都有谁压轴演出，你觉得这票价值得冲吗？"
+   - This naturally compels the tested AI to:
+     * Factuality: Accurately state real-time facts (city, dates, actual lineup).
+     * Structure: Provide a structured breakdown of dates, schedule, and ticket tiers.
+     * Value Assessment: Evaluate the lineup quality vs price to provide a recommendation.
+
+4. MULTI-TURN CONVERSATIONAL PROGRESSION:
+   - In subsequent rounds, keep the tone casual and oral, pursuing deeper details (e.g., specific ticket tiers/perks, transportation/venue logistics, or anti-drift traps).
+   - If testing anti-drift, naturally insert a short aborted thought: "哎，这让我想到个别的事——算了不想了。回到刚才那个，你觉得..."
 
 OUTPUT FORMAT:
-【提问内容】: (必须为纯中文表述的完整提问内容，可直接复制向模型提问)
-【测试关注点】: (1-3 句纯中文说明，指出该问题重点考察什么维度：如事实准确度、结构化表达、价值评估、抗话题漂移能力等)
+Directly output in pure Chinese without conversational pleasantries or preamble:
+【提问内容】: (30-65字的纯口语提问，直接张嘴就能念出来，5-10秒念完)
+【测试关注点】: (1-2句纯中文说明，指出该问题重点考察什么技能与事实维度)
 """
 
 
@@ -69,7 +74,7 @@ class QuestionGenerator:
         is_alternative: bool = False,
     ) -> str:
         """
-        Generates a question for the given round.
+        Generates a concise spoken question for the given round.
         If is_alternative is True, generates a different angle for the current round.
         """
         now_str = datetime.datetime.now().strftime("%Y年%m月%d日")
@@ -78,31 +83,34 @@ class QuestionGenerator:
 
         if is_alternative:
             action_prompt = (
-                f"当前用户正在进行第 {current_round}/{total_rounds} 轮提问。\n"
+                f"当前用户正在进行第 {current_round}/{total_rounds} 轮口语提问。\n"
                 f"用户希望【换一个全新提问角度】。\n"
                 f"之前尝试过的提问：\n{history_str}\n\n"
-                f"请完全避开上述已用角度，结合当前真实时间（{now_str}），为第 {current_round} 轮提供一个全新切入点的深度事实性测试问题。"
+                f"请完全避开上述已用角度，结合当前真实时间（{now_str}），为第 {current_round} 轮提供一个全新切入点的简短真人口语测试问题（30-65字，5-10秒念完）。"
             )
         elif current_round == 1:
             action_prompt = (
-                f"这是第 1 轮提问（总计划约 {total_rounds} 轮，预期时长/规模: {duration_desc}）。\n"
-                f"请结合当前真实时间（{now_str}）与测评主题，设计一个引人入胜、紧扣指定技能并兼具时效真实性的第 1 轮破题提问。"
+                f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
+                f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头提问，自然融入指定测试技能。"
             )
         else:
             action_prompt = (
-                f"当前进入第 {current_round}/{total_rounds} 轮递进提问。\n"
+                f"当前进入第 {current_round}/{total_rounds} 轮递进提问（总对话预期时长/场景: {duration_desc}）。\n"
                 f"前序轮次的问题脉络：\n{history_str}\n\n"
-                f"请紧扣主题并顺承前序问题，结合当前真实时间（{now_str}），提出一个更深入、更具辩证考证价值或挖掘隐蔽细节的第 {current_round} 轮提问。"
+                f"请紧扣主题并顺承前序问题，提出一个更深入但依然简短地道（30-65字口语）的第 {current_round} 轮口头发问。"
             )
 
         user_content = (
             f"=== 当前现实真实时间 ===\n{now_str}\n\n"
             f"=== 测评主题 ===\n{topic}\n\n"
+            f"=== 对话规格与场景 ===\n"
+            f"真人嘴巴说话 / 真实语音通话（总限时约 {duration_desc}）。用户需要直接张嘴把问题读出来！\n\n"
             f"=== 任务指令 ===\n{action_prompt}\n\n"
-            f"=== 核心原则与要求 ===\n"
-            f"1. 时效性与真实性（严格遵循）：基于当前真实时间（{now_str}），若主题包含“刚刚公布”、“最新”、“近期”或现实特定活动（如音乐节、发布会、演出、赛事），严禁将早已结束的历史旧活动说成“刚公布”或“即将举办”。提问必须基于当下真实时效或考查模型对时效真伪的分辨能力！\n"
-            f"2. 深度考察指定技能：若主题中注明了考核技能（如【事实准确性】、【结构化表达】、【价值评估】），提问内容必须精准设计，同时全面考察这些维度（如核验具体阵容与日期、要求结构化梳理排期与票档、深入剖析票价性价比与值不值）。\n"
-            f"3. 语言与格式：必须全部使用自然、地道、严密的中文（简体中文）撰写。不要任何开场白或寒暄，直接以【提问内容】开头。\n"
+            f"=== 核心原则与严厉禁止 ===\n"
+            f"1. 严格口语字数限制：【提问内容】必须在 30 ~ 65 字以内，口语极其自然流畅，绝对不要长篇大论，绝不能念出来超过10秒！\n"
+            f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
+            f"3. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的话剧、或虚构早过期的往届音乐节（如春季上海草莓）。让被测 AI 自己去说出真实的事实！\n"
+            f"4. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content)

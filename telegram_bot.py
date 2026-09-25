@@ -200,21 +200,41 @@ class TelegramBotService:
 
     def _handle_duration_reply(self, text: str):
         """User replied with duration/rounds."""
-        self.duration_desc = text
-        numbers = re.findall(r"\d+", text)
-        if numbers:
-            rounds = int(numbers[0])
-            self.total_rounds = max(1, min(rounds, 10))
+        text_clean = text.strip()
+        cn_to_num = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+        # Check if duration mentions minutes (分钟/分)
+        is_minutes = "分" in text_clean or "min" in text_clean.lower()
+
+        num_val = None
+        digits = re.findall(r"\d+", text_clean)
+        if digits:
+            num_val = int(digits[0])
+        else:
+            for cn_char, val in cn_to_num.items():
+                if cn_char in text_clean:
+                    num_val = val
+                    break
+
+        if is_minutes:
+            minutes = num_val or 3
+            # A 3-minute oral conversation realistically fits 3-4 turns
+            self.total_rounds = max(2, min(minutes, 5))
+            self.duration_desc = f"{minutes}分钟真人嘴巴口语交流（每轮发问30-65字，5-10秒念完）"
+        elif num_val:
+            self.total_rounds = max(1, min(num_val, 8))
+            self.duration_desc = f"{self.total_rounds}轮真人口语交流（每轮发问30-65字，5-10秒念完）"
         else:
             self.total_rounds = 3
+            self.duration_desc = "3分钟真人嘴巴口语交流（每轮发问30-65字，5-10秒念完）"
 
         self.state = "INTERACTIVE_QUESTIONS"
         self.current_round = 1
 
         self._send_chat_action("typing")
         self._send_message(
-            f"✅ 收到！已规划 <b>{self.total_rounds} 轮</b>深入测评。\n"
-            f"正在针对主题【{html.escape(self.topic)}】设计第 1 轮测试问题..."
+            f"✅ 收到！针对 <b>{self.duration_desc}</b> 场景，已规划 <b>{self.total_rounds} 轮</b>地道口语提问（每轮仅需 5-10 秒随口读出）。\n"
+            f"正在针对【{html.escape(self.topic)}】设计第 1 轮口语提问..."
         )
 
         q_text = self.generator.generate_question(

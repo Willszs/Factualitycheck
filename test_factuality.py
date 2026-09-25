@@ -81,8 +81,8 @@ class TestFactualityComponents(unittest.TestCase):
     def test_question_generator_system_prompt_and_cleaning(self):
         from question_generator import get_system_prompt
         prompt = get_system_prompt()
-        self.assertIn("TEMPORAL INTEGRITY & REAL-TIME GROUNDING", prompt)
-        self.assertIn("NEVER hallucinate an event that concluded in the past", prompt)
+        self.assertIn("REAL HUMAN SPEAKING ALOUD", prompt)
+        self.assertIn("ZERO HALLUCINATED PREMISES", prompt)
         self.assertIn("事实准确性", prompt)
         self.assertIn("结构化表达", prompt)
         self.assertIn("价值评估", prompt)
@@ -92,6 +92,20 @@ class TestFactualityComponents(unittest.TestCase):
         cleaned = gen._clean_output(dirty_output)
         self.assertTrue(cleaned.startswith("【提问内容】:"))
         self.assertNotIn("好的，这是为您设计的", cleaned)
+
+    def test_duration_parsing(self):
+        bot = TelegramBotService(self.sample_config)
+        bot._send_message = MagicMock(return_value=True)
+        bot.generator.generate_question = MagicMock(return_value="【提问内容】: 测试\n【测试关注点】: 测试")
+
+        # Test Chinese numerals and minutes
+        bot._handle_duration_reply("三分钟")
+        self.assertEqual(bot.total_rounds, 3)
+        self.assertIn("3分钟真人嘴巴口语交流", bot.duration_desc)
+
+        # Test Arabic numerals and rounds
+        bot._handle_duration_reply("5轮")
+        self.assertEqual(bot.total_rounds, 5)
 
     def test_telegram_bot_state_flow(self):
         bot = TelegramBotService(self.sample_config)
