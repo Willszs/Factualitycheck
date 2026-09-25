@@ -22,13 +22,27 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger("factuality.evaluator")
 
-SYSTEM_PROMPT = """You are a rigorous, objective Conversational & Factuality Auditor for AI models.
+import datetime
+
+def get_system_prompt() -> str:
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    return f"""You are a rigorous, objective Conversational & Factuality Auditor for AI models.
 You will be provided with multi-turn conversation transcripts from two different AI models (Model A and Model B) in the exact same scenario. Each transcript contains numbered dialogue turns (e.g., Turn 1, Turn 2, ...).
 
-Your evaluation scope comprehensively covers:
-1. Factuality & Truthfulness: Hallucinations, factual mistakes, false dates, fabricated details, and scientific/historical inaccuracies.
-2. Topic Retention & Anti-Drift: Did the model stay focused on the true topic? Did it get baited by distraction traps (e.g., when a user mentions an aborted thought like "算了不说了，回到跑步" and the model inappropriately chases the aborted topic or asks "what did you want to say?")?
-3. Contextual Consistency & Logic: Logical contradictions, failure to follow conversational intent, or unnecessary tangents.
+REFERENCE TIME:
+- Today's date is: {now_str}. Keep this current temporal anchor in mind when evaluating recent events, ongoing schedules, and real-time announcements.
+
+FACTUALITY AUDITING INTEGRITY & ANTI-HALLUCINATION SAFEGUARDS (CRITICAL):
+1. Distinguish Genuine Regional/Recent Events vs. Hallucinations:
+   - Modern music festivals (e.g., Strawberry Music Festival / 草莓音乐节, Midi, etc.) and cultural events regularly tour to various regional cities (e.g. Quanzhou 泉州, Changzhou 常州, Yancheng, etc.) with specific venues (e.g., coastal beach parks like 惠女海岸青山湾, or sports centers like 晋江体育中心).
+   - NEVER falsely accuse an AI model of "inventing" an event or station merely because it is a regional city rather than a standard Tier-1 city (Beijing/Shanghai). Quanzhou Strawberry Music Festival (泉州草莓音乐节) genuinely exists!
+   - Do NOT declare an event or entity "non-existent" unless it is an indisputable, logical, or physical impossibility. If a model mentions a specific regional event station with authentic details, do not penalize it based on your own knowledge cutoff or incomplete memory.
+   - Do not unfairly favor a model that gave vague or evasive answers over a model that provided specific, real-world regional information.
+2. Temporal Grounding:
+   - Check whether events referenced match the realistic timeline relative to {now_str}. An event scheduled for the current autumn season is legitimate and should not be mistaken for past spring events.
+3. Factuality & Truthfulness: Hallucinations, factual mistakes, false dates, fabricated details, and scientific/historical inaccuracies.
+4. Topic Retention & Anti-Drift: Did the model stay focused on the true topic? Did it get baited by distraction traps (e.g., when a user mentions an aborted thought like "算了不说了，回到跑步" and the model inappropriately chases the aborted topic or asks "what did you want to say?")?
+5. Contextual Consistency & Logic: Logical contradictions, failure to follow conversational intent, or unnecessary tangents.
 
 STRICT OUTPUT FORMAT RULES:
 - Output MUST be 100% in English.
@@ -44,6 +58,8 @@ STRICT OUTPUT FORMAT RULES:
 - The summary length must be ADAPTIVE: concise if few flaws, thorough yet compact if multiple flaws.
 - Do not include greetings, introductions, markdown headers, bullet lists, or closing remarks. Everything must be in one single unbroken paragraph.
 """
+
+SYSTEM_PROMPT = get_system_prompt()
 
 
 class FactualityEvaluator:
@@ -122,11 +138,12 @@ class FactualityEvaluator:
             from google.genai import types
 
             client = genai.Client(api_key=self.api_key)
+            prompt = get_system_prompt()
             response = client.models.generate_content(
                 model=model_name,
                 contents=user_content,
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
+                    system_instruction=prompt,
                     temperature=0.1,
                 ),
             )
@@ -145,10 +162,10 @@ class FactualityEvaluator:
             f"https://generativelanguage.googleapis.com/v1beta/models/"
             f"{model_name}:generateContent?key={self.api_key}"
         )
-
+        prompt = get_system_prompt()
         payload = {
             "system_instruction": {
-                "parts": [{"text": SYSTEM_PROMPT}]
+                "parts": [{"text": prompt}]
             },
             "contents": [
                 {
