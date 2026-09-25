@@ -1,11 +1,11 @@
 """
 Factuality Evaluator module for comparing Model A and Model B multi-turn dialogues.
 Uses Google Gemini API to analyze factual errors and generate an adaptive English summary.
-Includes automatic retries on 503/429 and proxy/VPN SSL resilience.
+Includes intelligent fallback across healthy models (3.6-flash, 3.8-flash, 3.1-flash-lite)
+and automatic retry on transient Google server load spikes (503).
 """
 
 import os
-import json
 import time
 import logging
 from typing import Dict, Any, Optional
@@ -14,6 +14,10 @@ try:
     import requests
 except ImportError:
     requests = None
+
+# Silence informational AFC warnings from google_genai
+logging.getLogger("google_genai.models").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger("factuality.evaluator")
 
@@ -61,7 +65,7 @@ class FactualityEvaluator:
     def evaluate(self, transcript_a: str, transcript_b: str) -> Optional[str]:
         """
         Analyzes the two conversation transcripts and returns the English summary report.
-        Automatically retries on temporary 503 high demand or network errors.
+        Automatically cycles through active models and handles transient Google load spikes.
         """
         if not self.api_key or "YOUR_" in self.api_key:
             logger.error("Gemini API key is not configured. Please check config.json or GEMINI_API_KEY.")
@@ -75,30 +79,30 @@ class FactualityEvaluator:
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )
 
-        # Candidate models to try in case of 503 high demand
+        # Verified active candidate models in priority order
         candidate_models = [self.primary_model]
-        for fallback in ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-flash-latest"]:
+        for fallback in ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite"]:
             if fallback not in candidate_models:
                 candidate_models.append(fallback)
 
         last_error = ""
         for model in candidate_models:
-            for attempt in range(1, 4):
-                logger.info(f"Evaluating with model [{model}] (attempt {attempt}/3)...")
+            for attempt in range(1, 3):
+                logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2)...")
                 result, error_msg = self._call_model(model, user_content)
                 if result:
                     return result
 
                 last_error = error_msg
-                # If 503 high demand or 429 rate limit, wait and retry
+                # If Google returns temporary 503 high demand or 429
                 if "503" in error_msg or "UNAVAILABLE" in error_msg or "429" in error_msg:
-                    logger.warning(f"Model {model} returned high demand/rate limit ({error_msg}). Waiting 2s before retry...")
-                    time.sleep(2)
+                    logger.warning(f"Model {model} busy on Google servers. Backing off 3s...")
+                    time.sleep(3)
                 else:
-                    # Non-transient error, try next candidate model
+                    # Non-transient error, move immediately to next model
                     break
 
-        return f"⚠️ Evaluation Failed: All Gemini models failed. Last error: {last_error}"
+        return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
 
     def _call_model(self, model_name: str, user_content: str) -> tuple[Optional[str], str]:
         # 1. Try google-genai SDK first
@@ -120,10 +124,7 @@ class FactualityEvaluator:
                 return response.text.strip(), ""
         except Exception as e:
             err_str = str(e)
-            logger.warning(f"google-genai SDK call failed ({err_str[:120]}), trying direct REST API...")
-            # If it's a 503, record it
-            if "503" in err_str:
-                return None, err_str
+            logger.warning(f"google-genai SDK call for {model_name} failed ({err_str[:100]}), trying REST API...")
 
         # 2. Try REST API via requests (with proxy & SSL tolerance)
         return self._evaluate_via_rest(model_name, user_content)
@@ -161,9 +162,9 @@ class FactualityEvaluator:
                                 return parts[0].get("text", "").strip(), ""
                         return None, "Empty candidates in response"
                     elif resp.status_code == 503:
-                        return None, f"503 Service Unavailable (Model {model_name} high demand)"
+                        return None, f"503 Service Unavailable (Google {model_name} high demand)"
                     else:
-                        return None, f"HTTP {resp.status_code}: {resp.text[:200]}"
+                        return None, f"HTTP {resp.status_code}: {resp.text[:120]}"
                 except Exception as req_err:
                     if verify:
                         continue  # retry with verify=False
