@@ -203,27 +203,55 @@ class TelegramBotService:
             f"━━━━━━━━━━━━━━━━━━\n"
             f"{html.escape(q_text)}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"<i>👉 复制上方问题向两个 AI 模型提问；问完后可点击下方按钮推进：</i>"
+            f"<i>👉 复制上方问题去问 AI 模型，或直接点下方按钮让电脑代打：</i>"
         )
 
         keyboard = [
             [
-                {"text": "🔄 换一个提问内容", "callback_data": "action_change_q"},
+                {"text": "⌨️ 让电脑帮我打出此题", "callback_data": "action_type_current_q"},
+                {"text": "🔄 换一个提问", "callback_data": "action_change_q"},
             ]
         ]
 
         if round_num < self.total_rounds:
-            keyboard[0].append({"text": "➡️ 确认，获取下一轮", "callback_data": "action_next_round"})
+            keyboard.append([{"text": "➡️ 确认，获取下一轮", "callback_data": "action_next_round"}])
         else:
-            keyboard[0].append({"text": "✅ 完成，准备对比", "callback_data": "action_finish"})
+            keyboard.append([{"text": "✅ 完成测试，准备对比", "callback_data": "action_finish"}])
 
         reply_markup = {"inline_keyboard": keyboard}
         self._send_message(msg, reply_markup=reply_markup)
 
     def _handle_callback_data(self, data: str, message_id: Optional[int]):
         """Handles inline button clicks."""
+        # --- Direct Typing of Current Question ---
+        if data == "action_type_current_q":
+            raw_text = self.history_questions[-1] if self.history_questions else ""
+            # Extract only the question text, exclude the testing notes
+            match = re.search(r"【提问内容】[：:]\s*(.*?)(?=\n+【测试关注点】|\Z)", raw_text, re.DOTALL)
+            text_to_type = match.group(1).strip().strip('"“”') if match else raw_text
+
+            self.pending_typing_text = text_to_type
+            preview = text_to_type if len(text_to_type) <= 120 else text_to_type[:115] + "..."
+            confirm_msg = (
+                f"⌨️ <b>准备向电脑输入第 {self.current_round} 轮问题：</b>\n"
+                f"<blockquote>{html.escape(preview)}</blockquote>\n\n"
+                f"请把电脑鼠标光标点进 AI 对话框（如 ChatGPT/Claude/文心等），点击下方开始："
+            )
+            self._send_message(
+                confirm_msg,
+                reply_markup={
+                    "inline_keyboard": [
+                        [
+                            {"text": "▶️ 开始输入（3秒倒计时）", "callback_data": "action_start_typing"},
+                            {"text": "❌ 取消", "callback_data": "action_cancel_typing"},
+                        ]
+                    ]
+                },
+            )
+            return
+
         # --- Typing Simulation Actions ---
-        if data == "action_start_typing":
+        elif data == "action_start_typing":
             if not self.pending_typing_text:
                 self._send_message("⚠️ 没有待输入的文本，请先发送一段文本给我。")
                 return
@@ -325,6 +353,9 @@ class TelegramBotService:
         self._send_message(finish_msg)
 
     def _send_message(self, text: str, reply_markup: Optional[dict] = None) -> bool:
+        if len(text) > 4000:
+            text = text[:3900] + "\n\n...[内容过长已截断]..."
+
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = {
             "chat_id": self.target_chat_id,
@@ -341,12 +372,23 @@ class TelegramBotService:
                     resp = requests.post(url, json=payload, timeout=15, verify=verify)
                     if resp.status_code == 200:
                         return True
+                    # If HTML parsing failed (400 Bad Request), fallback to plain text
+                    if resp.status_code == 400:
+                        plain_payload = dict(payload)
+                        plain_payload.pop("parse_mode", None)
+                        plain_payload["text"] = re.sub(r"<[^>]+>", "", text)
+                        fallback_resp = requests.post(url, json=plain_payload, timeout=15, verify=verify)
+                        if fallback_resp.status_code == 200:
+                            return True
                 except Exception:
                     if not verify:
                         break
         return False
 
     def _edit_message_text(self, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
+        if len(text) > 4000:
+            text = text[:3900] + "\n\n...[内容过长已截断]..."
+
         url = f"https://api.telegram.org/bot{self.bot_token}/editMessageText"
         payload = {
             "chat_id": self.target_chat_id,
@@ -364,6 +406,13 @@ class TelegramBotService:
                     resp = requests.post(url, json=payload, timeout=10, verify=verify)
                     if resp.status_code == 200:
                         return True
+                    if resp.status_code == 400:
+                        plain_payload = dict(payload)
+                        plain_payload.pop("parse_mode", None)
+                        plain_payload["text"] = re.sub(r"<[^>]+>", "", text)
+                        fallback_resp = requests.post(url, json=plain_payload, timeout=10, verify=verify)
+                        if fallback_resp.status_code == 200:
+                            return True
                 except Exception:
                     if not verify:
                         break

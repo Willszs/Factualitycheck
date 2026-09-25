@@ -248,6 +248,47 @@ class FactualityApp:
         # Set initial focus to Topic input
         self.txt_topic.focus_set()
 
+        # Enhance inputs with native shortcuts & context menus
+        self._setup_text_enhancements()
+
+    def _setup_text_enhancements(self):
+        """Adds macOS Cmd+A select all and native right-click context menu."""
+        widgets = [self.txt_topic, self.txt_a, self.txt_b]
+        for w in widgets:
+            self._attach_context_menu(w)
+
+        # macOS Cmd+A and Ctrl+A binding
+        self.txt_topic.bind("<Command-a>", lambda e: (self.txt_topic.select_range(0, tk.END), self.txt_topic.icursor(tk.END), "break")[2])
+        self.txt_topic.bind("<Control-a>", lambda e: (self.txt_topic.select_range(0, tk.END), self.txt_topic.icursor(tk.END), "break")[2])
+        self.txt_a.bind("<Command-a>", lambda e: (self.txt_a.tag_add("sel", "1.0", "end"), "break")[1])
+        self.txt_a.bind("<Control-a>", lambda e: (self.txt_a.tag_add("sel", "1.0", "end"), "break")[1])
+        self.txt_b.bind("<Command-a>", lambda e: (self.txt_b.tag_add("sel", "1.0", "end"), "break")[1])
+        self.txt_b.bind("<Control-a>", lambda e: (self.txt_b.tag_add("sel", "1.0", "end"), "break")[1])
+
+    def _attach_context_menu(self, widget):
+        """Attaches right-click Cut, Copy, Paste, Select All, Clear menu."""
+        menu = tk.Menu(widget, tearoff=0)
+        menu.add_command(label="剪切 (Cut)", command=lambda: widget.event_generate("<<Cut>>"))
+        menu.add_command(label="复制 (Copy)", command=lambda: widget.event_generate("<<Copy>>"))
+        menu.add_command(label="粘贴 (Paste)", command=lambda: widget.event_generate("<<Paste>>"))
+        menu.add_separator()
+        if isinstance(widget, tk.Entry):
+            menu.add_command(label="全选 (Select All)", command=lambda: [widget.select_range(0, tk.END), widget.icursor(tk.END)])
+            menu.add_command(label="清空 (Clear)", command=lambda: widget.delete(0, tk.END))
+        else:
+            menu.add_command(label="全选 (Select All)", command=lambda: widget.tag_add("sel", "1.0", "end"))
+            menu.add_command(label="清空 (Clear)", command=lambda: widget.delete("1.0", tk.END))
+
+        def show_menu(event):
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+        widget.bind("<Button-2>", show_menu)
+        widget.bind("<Button-3>", show_menu)
+        widget.bind("<Control-Button-1>", show_menu)
+
     def on_submit_topic(self):
         """Immediately captures topic, clears input, and asks duration on Telegram."""
         topic = self.txt_topic.get().strip()
