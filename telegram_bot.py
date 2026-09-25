@@ -399,9 +399,12 @@ class TelegramBotService:
         """Runs typing simulation in background and notifies user on completion."""
         self.is_typing_active = True
         try:
-            HumanTyper.type_like_human(text, countdown_secs=3)
-            done_msg = f"🎉 <b>模拟打字已完成！</b>（共输入 {len(text)} 字）"
-            self._send_message(done_msg)
+            success, err_msg = HumanTyper.type_like_human(text, countdown_secs=3)
+            if success:
+                done_msg = f"🎉 <b>模拟打字已完成！</b>（共输入 {len(text)} 字）"
+                self._send_message(done_msg)
+            else:
+                self._send_message(f"⚠️ {err_msg}")
         except Exception as e:
             logger.error(f"Typing execution failed: {e}")
             self._send_message(f"⚠️ 模拟打字出错: {e}")
