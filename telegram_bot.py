@@ -43,6 +43,7 @@ class TelegramBotService:
 
         # Typing simulation buffer
         self.pending_typing_text = ""
+        self.current_factuality_report = ""
         self.is_typing_active = False
 
         self.last_update_id = 0
@@ -86,6 +87,38 @@ class TelegramBotService:
         )
         self._send_message(prompt_msg)
 
+    def deliver_factuality_report(self, title: str, summary: str) -> bool:
+        """
+        Delivers the factuality check report (strictly unsegmented single paragraph),
+        and offers interactive options:
+        1. 准备好了，直接打字 (Ready, direct typing)
+        2. 我需要修改 (Need to edit before typing)
+        """
+        clean_summary = re.sub(r"[\r\n]+", " ", summary).strip()
+        clean_summary = re.sub(r"\s{2,}", " ", clean_summary)
+
+        self.current_factuality_report = clean_summary
+        self.pending_typing_text = clean_summary
+        self.state = "IDLE"
+
+        escaped_title = html.escape(title)
+        escaped_body = html.escape(clean_summary)
+
+        msg = (
+            f"📊 <b>{escaped_title}</b>\n"
+            f"{escaped_body}\n\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"<i>🤖 是否需要在电脑当前光标处自动打出此报告？</i>"
+        )
+
+        keyboard = [
+            [
+                {"text": "⌨️ 准备好了，直接打字", "callback_data": "action_ready_direct_type"},
+                {"text": "✏️ 我需要修改", "callback_data": "action_need_edit_report"},
+            ]
+        ]
+        return self._send_message(msg, reply_markup={"inline_keyboard": keyboard})
+
     def _polling_loop(self):
         """Long polling loop for incoming messages and callback queries."""
         while self.is_running:
@@ -126,8 +159,25 @@ class TelegramBotService:
             if not text:
                 return
 
-            # Check if waiting for duration
-            if self.state == "WAITING_DURATION":
+            # Check states
+            if self.state == "WAITING_REPORT_EDIT":
+                self.pending_typing_text = text
+                self.state = "IDLE"
+                preview = text if len(text) <= 120 else text[:115] + "..."
+                confirm_msg = (
+                    f"⌨️ <b>已接收修改后的新内容（共 {len(text)} 字）：</b>\n"
+                    f"<blockquote>{html.escape(preview)}</blockquote>\n\n"
+                    f"<b>准备好了吗？</b>\n"
+                    f"请把电脑鼠标光标点进目标输入框，点击下方按钮开始（3 秒倒计时准备）："
+                )
+                keyboard = [
+                    [
+                        {"text": "▶️ 准备好了，开始打字", "callback_data": "action_start_typing"},
+                        {"text": "❌ 取消", "callback_data": "action_cancel_typing"},
+                    ]
+                ]
+                self._send_message(confirm_msg, reply_markup={"inline_keyboard": keyboard})
+            elif self.state == "WAITING_DURATION":
                 self._handle_duration_reply(text)
             else:
                 # User sent arbitrary text -> trigger typing assistant flow!
@@ -203,12 +253,11 @@ class TelegramBotService:
             f"━━━━━━━━━━━━━━━━━━\n"
             f"{html.escape(q_text)}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"<i>👉 复制上方问题去问 AI 模型，或直接点下方按钮让电脑代打：</i>"
+            f"<i>👉 复制上方问题向两个 AI 模型提问；问完后可点击下方按钮推进：</i>"
         )
 
         keyboard = [
             [
-                {"text": "⌨️ 让电脑帮我打出此题", "callback_data": "action_type_current_q"},
                 {"text": "🔄 换一个提问", "callback_data": "action_change_q"},
             ]
         ]
@@ -223,31 +272,49 @@ class TelegramBotService:
 
     def _handle_callback_data(self, data: str, message_id: Optional[int]):
         """Handles inline button clicks."""
-        # --- Direct Typing of Current Question ---
-        if data == "action_type_current_q":
-            raw_text = self.history_questions[-1] if self.history_questions else ""
-            # Extract only the question text, exclude the testing notes
-            match = re.search(r"【提问内容】[：:]\s*(.*?)(?=\n+【测试关注点】|\Z)", raw_text, re.DOTALL)
-            text_to_type = match.group(1).strip().strip('"“”') if match else raw_text
+        # --- Factuality Check Direct Typing & Editing ---
+        if data == "action_ready_direct_type":
+            if not self.pending_typing_text:
+                self.pending_typing_text = self.current_factuality_report
+            if not self.pending_typing_text:
+                self._send_message("⚠️ 暂无事实排查内容可输入。")
+                return
 
-            self.pending_typing_text = text_to_type
-            preview = text_to_type if len(text_to_type) <= 120 else text_to_type[:115] + "..."
+            preview = self.pending_typing_text if len(self.pending_typing_text) <= 120 else self.pending_typing_text[:115] + "..."
             confirm_msg = (
-                f"⌨️ <b>准备向电脑输入第 {self.current_round} 轮问题：</b>\n"
+                f"⌨️ <b>准备向电脑输入事实排查报告（共 {len(self.pending_typing_text)} 字）：</b>\n"
                 f"<blockquote>{html.escape(preview)}</blockquote>\n\n"
-                f"请把电脑鼠标光标点进 AI 对话框（如 ChatGPT/Claude/文心等），点击下方开始："
+                f"<b>准备好了吗？</b>\n"
+                f"请把电脑鼠标光标点进目标输入框，点击下方按钮开始（3 秒倒计时准备）："
             )
-            self._send_message(
-                confirm_msg,
-                reply_markup={
-                    "inline_keyboard": [
-                        [
-                            {"text": "▶️ 开始输入（3秒倒计时）", "callback_data": "action_start_typing"},
-                            {"text": "❌ 取消", "callback_data": "action_cancel_typing"},
-                        ]
-                    ]
-                },
+            keyboard = [
+                [
+                    {"text": "▶️ 准备好了，开始打字", "callback_data": "action_start_typing"},
+                    {"text": "❌ 取消", "callback_data": "action_cancel_typing"},
+                ]
+            ]
+            self._send_message(confirm_msg, reply_markup={"inline_keyboard": keyboard})
+            return
+
+        elif data == "action_need_edit_report":
+            self.state = "WAITING_REPORT_EDIT"
+            edit_msg = (
+                f"✏️ <b>我需要修改：</b>\n\n"
+                f"请直接在 Telegram 中回复您<b>修改后的新内容</b>：\n"
+                f"<i>（提示：您可以复制上方报告内容，在手机输入框修改完成后直接发给我）</i>"
             )
+            keyboard = [
+                [
+                    {"text": "❌ 取消修改", "callback_data": "action_cancel_edit"},
+                ]
+            ]
+            self._send_message(edit_msg, reply_markup={"inline_keyboard": keyboard})
+            return
+
+        elif data == "action_cancel_edit":
+            self.state = "IDLE"
+            self.pending_typing_text = self.current_factuality_report
+            self._send_message("已取消修改，保留原始报告内容。")
             return
 
         # --- Typing Simulation Actions ---

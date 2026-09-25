@@ -350,12 +350,18 @@ class FactualityApp:
 
                 # 2. Push result strictly to mobile notification
                 title = f"Factuality Assessment Report [{task['time']}]"
-                success = self.notifier.send(title, summary)
+                delivered = False
+                if self.tg_service and self.tg_service.is_running and self.tg_service.bot_token:
+                    delivered = self.tg_service.deliver_factuality_report(title, summary)
+                    if delivered:
+                        logger.info("Assessment pushed to Telegram bot with interactive typing actions.")
 
-                if success:
-                    logger.info("Assessment pushed successfully to mobile device.")
-                else:
-                    logger.warning("Push notification could not be dispatched (check config).")
+                if not delivered or self.notifier.channel != "telegram":
+                    success = self.notifier.send(title, summary)
+                    if success:
+                        logger.info(f"Assessment pushed successfully via {self.notifier.channel}.")
+                    else:
+                        logger.warning("Push notification could not be dispatched (check config).")
 
                 self.task_queue.task_done()
             except Exception as e:
