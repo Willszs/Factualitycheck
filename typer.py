@@ -136,13 +136,17 @@ class HumanTyper:
                         timeout=5,
                     )
 
-                # Realistic cadence delays
+                # Natural medium human typing cadence
                 if char in punctuation_set:
-                    time.sleep(random.uniform(0.08, 0.18))
+                    time.sleep(random.uniform(0.22, 0.40))
                 elif char in " \t":
-                    time.sleep(random.uniform(0.02, 0.05))
+                    time.sleep(random.uniform(0.08, 0.15))
                 else:
-                    time.sleep(random.uniform(0.012, 0.035))
+                    time.sleep(random.uniform(0.055, 0.095))
+
+                # Occasional slight human hesitation
+                if random.random() < 0.025:
+                    time.sleep(random.uniform(0.18, 0.35))
 
             logger.info("Human typing simulation finished successfully.")
             return True, ""
