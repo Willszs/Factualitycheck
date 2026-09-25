@@ -129,7 +129,7 @@ class FactualityApp:
 
         self.btn_topic = tk.Button(
             topic_frame,
-            text="发起主题",
+            text="发送",
             font=("SF Pro Text", 12, "bold"),
             bg=self.green_accent,
             fg="#ffffff",
@@ -290,17 +290,17 @@ class FactualityApp:
         widget.bind("<Control-Button-1>", show_menu)
 
     def on_submit_topic(self):
-        """Immediately captures topic, clears input, and asks duration on Telegram."""
+        """Immediately captures text in 粘贴3, clears input, and asks duration on Telegram."""
         topic = self.txt_topic.get().strip()
         if not topic:
-            self._set_status_temp("请先在【粘贴3】输入主题", duration_ms=2500, fg="#d93025")
+            self._set_status_temp("请先在【粘贴3】输入内容", duration_ms=2500, fg="#d93025")
             return
 
         # 1. Immediately wipe topic input
         self.txt_topic.delete(0, tk.END)
 
         # 2. Update status and inform user to check Telegram
-        self._set_status_temp("主题已发起！请在手机 Telegram 回复轮数...", duration_ms=4000, fg="#1e8e3e")
+        self._set_status_temp("已发送，请留意手机...", duration_ms=3000, fg="#1e8e3e")
 
         # 3. Trigger topic flow in background thread
         threading.Thread(target=self.tg_service.start_topic, args=(topic,), daemon=True).start()
