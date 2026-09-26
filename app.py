@@ -11,6 +11,7 @@ import json
 import queue
 import logging
 import threading
+import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -78,6 +79,10 @@ class FactualityApp:
         self._apply_styles()
         self._build_ui()
 
+        # Setup global hotkeys for hands-free background pasting & sending
+        self.hotkey_listener = None
+        self._setup_global_hotkeys()
+
         # Clean shutdown handling
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -107,7 +112,7 @@ class FactualityApp:
 
         label_topic = tk.Label(
             topic_frame,
-            text="粘贴3",
+            text="粘贴3  (⌥⌘3)",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
@@ -129,7 +134,7 @@ class FactualityApp:
 
         self.btn_topic = tk.Button(
             topic_frame,
-            text="发送",
+            text="发送 (⌥⌘3)",
             font=("SF Pro Text", 12, "bold"),
             bg=self.green_accent,
             fg="#ffffff",
@@ -157,7 +162,7 @@ class FactualityApp:
 
         label_a = tk.Label(
             frame_a,
-            text="粘贴1",
+            text="粘贴1  (⌥⌘1)",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
@@ -187,7 +192,7 @@ class FactualityApp:
 
         label_b = tk.Label(
             frame_b,
-            text="粘贴2",
+            text="粘贴2  (⌥⌘2)",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
@@ -217,7 +222,7 @@ class FactualityApp:
 
         self.btn_submit = tk.Button(
             bottom_bar,
-            text="发送到手机",
+            text="发送到手机 (⌥⌘↩ / ⌥⌘S)",
             font=("SF Pro Text", 14, "bold"),
             bg=self.accent_color,
             fg="#ffffff",
@@ -372,9 +377,136 @@ class FactualityApp:
             except Exception as e:
                 logger.error(f"Error in background evaluation worker: {e}", exc_info=True)
 
+    # =========================================================================
+    # Global Hotkeys (Hands-Free Background Pasting & Sending)
+    # =========================================================================
+    def _setup_global_hotkeys(self):
+        """Initializes system-wide global hotkeys for hands-free background pasting & sending."""
+        try:
+            from pynput import keyboard
+
+            self.hotkey_listener = keyboard.GlobalHotKeys({
+                "<cmd>+<alt>+1": self._hotkey_paste_a,
+                "<ctrl>+<alt>+1": self._hotkey_paste_a,
+                "<cmd>+<alt>+2": self._hotkey_paste_b,
+                "<ctrl>+<alt>+2": self._hotkey_paste_b,
+                "<cmd>+<alt>+3": self._hotkey_paste_topic,
+                "<ctrl>+<alt>+3": self._hotkey_paste_topic,
+                "<cmd>+<alt>+<enter>": self._hotkey_submit_eval,
+                "<ctrl>+<alt>+<enter>": self._hotkey_submit_eval,
+                "<cmd>+<alt>+s": self._hotkey_paste_b_and_submit,
+                "<ctrl>+<alt>+s": self._hotkey_paste_b_and_submit,
+            })
+            self.hotkey_listener.start()
+            logger.info("Global hotkey listener started (⌥⌘1, ⌥⌘2, ⌥⌘3, ⌥⌘↩, ⌥⌘S).")
+        except Exception as e:
+            logger.warning(f"Could not initialize global hotkeys: {e}")
+            self.hotkey_listener = None
+
+    def _get_clipboard_text(self) -> str:
+        """Reads system clipboard using pbpaste on macOS or tkinter fallback."""
+        try:
+            return subprocess.check_output(["pbpaste"], text=True)
+        except Exception:
+            try:
+                return self.root.clipboard_get()
+            except Exception:
+                return ""
+
+    def _play_feedback_sound(self, sound_name: str = "Tink"):
+        """Plays subtle macOS feedback sound in background."""
+        def _play():
+            try:
+                subprocess.run(
+                    ["afplay", f"/System/Library/Sounds/{sound_name}.aiff"],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception:
+                pass
+        threading.Thread(target=_play, daemon=True).start()
+
+    def _notify_macos(self, title: str, message: str):
+        """Dispatches a lightweight macOS system notification."""
+        def _notify():
+            try:
+                clean_title = title.replace('"', '\\"')
+                clean_msg = message.replace('"', '\\"')
+                script = f'display notification "{clean_msg}" with title "{clean_title}"'
+                subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+        threading.Thread(target=_notify, daemon=True).start()
+
+    def _hotkey_paste_a(self):
+        clip = self._get_clipboard_text().strip()
+        if not clip:
+            return
+        self.root.after(0, lambda: self._apply_paste_a(clip))
+
+    def _apply_paste_a(self, text: str):
+        self.txt_a.delete("1.0", tk.END)
+        self.txt_a.insert("1.0", text)
+        self._set_status_temp(f"已快捷存入【粘贴1】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
+        self._play_feedback_sound("Pop")
+        self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴1】（{len(text)} 字）")
+
+    def _hotkey_paste_b(self):
+        clip = self._get_clipboard_text().strip()
+        if not clip:
+            return
+        self.root.after(0, lambda: self._apply_paste_b(clip))
+
+    def _apply_paste_b(self, text: str):
+        self.txt_b.delete("1.0", tk.END)
+        self.txt_b.insert("1.0", text)
+        self._set_status_temp(f"已快捷存入【粘贴2】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
+        self._play_feedback_sound("Pop")
+        self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴2】（{len(text)} 字）")
+
+    def _hotkey_paste_topic(self):
+        clip = self._get_clipboard_text().strip()
+        if not clip:
+            return
+        self.root.after(0, lambda: self._apply_paste_topic(clip))
+
+    def _apply_paste_topic(self, text: str):
+        self.txt_topic.delete(0, tk.END)
+        self.txt_topic.insert(0, text)
+        self.on_submit_topic()
+        self._play_feedback_sound("Glass")
+        self._notify_macos("Factuality 快捷键", "已存入【粘贴3】并发送主题！")
+
+    def _hotkey_submit_eval(self):
+        self.root.after(0, self._apply_submit_eval)
+
+    def _apply_submit_eval(self):
+        self.on_submit_eval()
+        self._play_feedback_sound("Hero")
+        self._notify_macos("Factuality 快捷键", "已触发测评并发送至手机！")
+
+    def _hotkey_paste_b_and_submit(self):
+        """Super shortcut: Paste clipboard to Box 2 AND immediately send to mobile!"""
+        clip = self._get_clipboard_text().strip()
+        self.root.after(0, lambda: self._apply_paste_b_and_submit(clip))
+
+    def _apply_paste_b_and_submit(self, clip: str):
+        if clip:
+            self.txt_b.delete("1.0", tk.END)
+            self.txt_b.insert("1.0", clip)
+        self.on_submit_eval()
+        self._play_feedback_sound("Hero")
+        self._notify_macos("Factuality 快捷键", "已存入【粘贴2】并立即发送至手机！")
+
     def on_close(self):
         """Clean shutdown of background threads."""
         logger.info("Application shutting down...")
+        if hasattr(self, "hotkey_listener") and self.hotkey_listener:
+            try:
+                self.hotkey_listener.stop()
+            except Exception:
+                pass
         self.tg_service.stop()
         self.root.destroy()
 
