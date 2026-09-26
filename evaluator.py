@@ -54,6 +54,21 @@ Whenever a factual error, hallucination, or omission occurs, you MUST explicitly
 - The EXACT false or inaccurate claim made by the model.
 - The verified REAL-WORLD GROUND TRUTH (what the correct information actually is).
 
+CRITICAL ZERO-TOLERANCE JUDGMENT RULES (只要有严重事实性错误直接判不好，出现两处严重错误就都判不好):
+1. Utility & Factuality Zero-Tolerance:
+   - If BOTH models have severe factual errors / hallucinations (e.g. both Model A and Model B give inaccurate guest rosters for a music festival, invent non-existent performers, misattribute opening statuses, or fabricate dates/venues):
+     -> You MUST rule: "For utility I prefer neither model."
+     State clearly that both models failed factual accuracy, cite Turn [X] for Model A and Turn [Y] for Model B with their specific errors, and provide the verified Ground Truth!
+   - A model with severe factual hallucinations can NEVER be preferred simply because it was polite or lengthy. If both models hallucinate, prefer NEITHER model.
+   - If only one model is factually accurate and complete while the other has severe errors, prefer the accurate model ("For utility I prefer Model [X].").
+
+2. Conversational Dynamics Zero-Tolerance:
+   - If a model commits TWO OR MORE severe conversational flaws across turns (e.g. repeated artificial search-simulation intros like "收到，我去查一下...", "好的，我去确认一下...", failure to handle aborted thoughts/anti-drift, robotic essay formatting instead of spoken dialogue, or unnatural turn boundaries):
+     -> It MUST be judged as unacceptable.
+   - If BOTH Model A and Model B exhibit two or more severe conversational flaws across the conversation:
+     -> You MUST rule: "For conversational dynamics I prefer neither model."
+     Detail the specific flaws of each model turn by turn.
+
 STRICT TWO-DIMENSION OUTPUT FORMAT:
 You MUST divide your evaluation into EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
 
@@ -69,10 +84,15 @@ PARAGRAPH 2: Utility
 - Scope: Evaluates whether the provided information is complete, concrete, actionable, and factually correct (完整、具体、有效、准确).
 - Mandatory details: Explicitly cite the specific Turn [X], identify the precise factual inaccuracy, hallucination, or omission, state what the model claimed, and provide the verified Ground Truth.
 
-REFERENCE BENCHMARK EXAMPLE:
+REFERENCE BENCHMARK EXAMPLE 1 (One model preferred):
 For conversational dynamics I prefer Model A. Model B exhibited severe formatting and dialogue habit flaws, opening Turn 2, Turn 4, and Turn 6 with artificial search-simulation intros ("收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") instead of providing natural direct responses. Furthermore, Model A demonstrated superior adaptivity and flow in Turn 5 when handling the user's aborted thought without inappropriate conversational drift.
 
 For utility I prefer Model A. In Turn 6, Model B misstated the statutory voting thresholds under Article 278 of the Chinese Civil Code for dismissing property management, claiming that approval requires two-thirds of total area and homeowners, whereas the legal requirement is a two-thirds participation quorum followed by a simple majority (>50%) approval among participating votes. Furthermore, Model A provided far more complete, concrete, and actionable guidance across Turns 2 and 4, whereas Model B omitted key statutory notice periods and gave vague procedural steps.
+
+REFERENCE BENCHMARK EXAMPLE 2 (Both models rejected - 'prefer neither model'):
+For conversational dynamics I prefer neither model. Both Model A and Model B displayed multiple severe dialogue flaws: Model A repeatedly opened Turns 2 and 4 with artificial search intros ("好的，我去确认一下..."), while Model B in Turn 3 and Turn 5 failed anti-drift by aggressively chasing the user's discarded thoughts rather than maintaining conversation flow.
+
+For utility I prefer neither model. Both models suffered from critical factual hallucinations regarding the music festival lineup: in Turn 1, Model A falsely claimed that Jay Chou and Eason Chan were headlining the event, whereas in reality neither artist was in the official lineup; meanwhile in Turn 1 and Turn 2, Model B gave an equally inaccurate guest list by transferring artists from last year's festival and inventing non-existent performance dates. Because both models failed baseline factual correctness on core entities, neither model can be recommended for utility.
 
 STRICT FORMAT RULES:
 - Output MUST be 100% in English.

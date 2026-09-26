@@ -343,10 +343,15 @@ class FactualityApp:
         while True:
             try:
                 task = self.task_queue.get()
-                logger.info(f"Starting background evaluation for task queued at {task['time']}...")
+                logger.info(
+                    f"Starting background evaluation for task queued at {task['time']}...\n"
+                    f"=== TRANSCRIPT A ({len(task['content_a'])} chars) ===\n{task['content_a']}\n"
+                    f"=== TRANSCRIPT B ({len(task['content_b'])} chars) ===\n{task['content_b']}"
+                )
 
                 # 1. Call Gemini LLM to evaluate factuality
                 summary = self.evaluator.evaluate(task["content_a"], task["content_b"])
+                logger.info(f"=== EVALUATION REPORT [{task['time']}] ===\n{summary}")
 
                 # 2. Push result strictly to mobile notification
                 title = f"Factuality Assessment Report [{task['time']}]"
