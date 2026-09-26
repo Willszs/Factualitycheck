@@ -161,17 +161,31 @@ class HumanTyper:
                         timeout=5,
                     )
 
-                # Natural medium human typing cadence
-                if char in punctuation_set:
-                    time.sleep(random.uniform(0.22, 0.40))
+                # 1. Base typing cadence: 2x slower (放慢一倍)
+                if char in "\n\r":
+                    time.sleep(random.uniform(0.90, 1.80))
+                elif char in punctuation_set:
+                    time.sleep(random.uniform(0.50, 0.95))
                 elif char in " \t":
-                    time.sleep(random.uniform(0.08, 0.15))
+                    time.sleep(random.uniform(0.18, 0.36))
                 else:
-                    time.sleep(random.uniform(0.055, 0.095))
+                    time.sleep(random.uniform(0.12, 0.22))
 
-                # Occasional slight human hesitation
-                if random.random() < 0.025:
-                    time.sleep(random.uniform(0.18, 0.35))
+                # 2. Irregular human pauses & hesitations (没有规律的自然停顿)
+                rand_val = random.random()
+                if rand_val < 0.008:
+                    # Deep reading / proofreading hesitation (0.8% chance)
+                    time.sleep(random.uniform(2.0, 3.5))
+                elif rand_val < 0.033:
+                    # Mid-sentence thought reorganization (2.5% chance)
+                    time.sleep(random.uniform(0.90, 1.80))
+                elif rand_val < 0.095:
+                    # Word-boundary / cognitive thinking pause (6.2% chance)
+                    time.sleep(random.uniform(0.40, 0.85))
+                elif char.isupper() or char in '()"“”':
+                    # Occasional reach for Shift / quote key
+                    if random.random() < 0.25:
+                        time.sleep(random.uniform(0.12, 0.25))
 
             logger.info("Human typing simulation finished successfully.")
             return True, ""

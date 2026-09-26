@@ -35,21 +35,31 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertIn("Gemini API Key", res)
 
     def test_prompt_structure_contains_required_sections(self):
-        self.assertIn("Verdict", SYSTEM_PROMPT)
+        self.assertIn("Conversational Dynamics", SYSTEM_PROMPT)
+        self.assertIn("Utility", SYSTEM_PROMPT)
+        self.assertIn("For conversational dynamics I prefer", SYSTEM_PROMPT)
+        self.assertIn("For utility I prefer", SYSTEM_PROMPT)
         self.assertIn("Model A", SYSTEM_PROMPT)
         self.assertIn("Model B", SYSTEM_PROMPT)
         self.assertIn("Ground Truth", SYSTEM_PROMPT)
         self.assertIn("Turn [X]", SYSTEM_PROMPT)
-        self.assertIn("Flawless", SYSTEM_PROMPT)
-        self.assertIn("NO PARAGRAPH BREAKS", SYSTEM_PROMPT)
 
-    def test_clean_single_paragraph(self):
-        multiline_text = "### The Verdict\nModel A was better.\n\n### Model A's Flaws\n* Turn 1: Mistake. Ground Truth: Fact.\n\n### Model B's Flaws\nFlawless - No flaws detected."
-        cleaned = FactualityEvaluator.clean_single_paragraph(multiline_text)
-        self.assertNotIn("\n", cleaned)
-        self.assertIn("Verdict: Model A was better.", cleaned)
-        self.assertIn("Turn 1: Mistake", cleaned)
-        self.assertIn("Ground Truth: Fact", cleaned)
+    def test_clean_evaluation_report(self):
+        sample_raw = (
+            "### Conversational Dynamics\n"
+            "For conversational dynamics I prefer Model A.\n"
+            "* Model B opened Turn 2 with artificial search intro.\n\n"
+            "### Utility\n"
+            "For utility I prefer Model A.\n"
+            "* Model B in Turn 6 misstated voting thresholds. Ground Truth: simple majority."
+        )
+        cleaned = FactualityEvaluator.clean_evaluation_report(sample_raw)
+        paragraphs = cleaned.split("\n\n")
+        self.assertEqual(len(paragraphs), 2)
+        self.assertTrue(paragraphs[0].startswith("For conversational dynamics I prefer Model A."))
+        self.assertTrue(paragraphs[1].startswith("For utility I prefer Model A."))
+        self.assertNotIn("###", cleaned)
+        self.assertIn("Ground Truth: simple majority.", paragraphs[1])
 
     @patch("requests.post")
     def test_telegram_notifier_success(self, mock_post):

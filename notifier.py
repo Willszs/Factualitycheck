@@ -75,9 +75,9 @@ class Notifier:
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-        # Format as strictly unsegmented text without paragraph breaks (不要分段)
-        clean_body = re.sub(r"[\r\n]+", " ", message).strip()
-        clean_body = re.sub(r"\s{2,}", " ", clean_body)
+        # Preserve the two dimensions separated by a blank line
+        clean_body = re.sub(r"\r\n", "\n", message).strip()
+        clean_body = re.sub(r"\n{3,}", "\n\n", clean_body)
 
         escaped_title = html.escape(title)
         escaped_body = html.escape(clean_body)

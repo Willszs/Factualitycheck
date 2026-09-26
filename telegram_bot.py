@@ -89,13 +89,14 @@ class TelegramBotService:
 
     def deliver_factuality_report(self, title: str, summary: str) -> bool:
         """
-        Delivers the factuality check report (strictly unsegmented single paragraph),
+        Delivers the factuality check report (structured into two dimensions with an empty line),
         and offers interactive options:
         1. 准备好了，直接打字 (Ready, direct typing)
         2. 我需要修改 (Need to edit before typing)
         """
-        clean_summary = re.sub(r"[\r\n]+", " ", summary).strip()
-        clean_summary = re.sub(r"\s{2,}", " ", clean_summary)
+        # Preserve the empty line between the two evaluation dimensions
+        clean_summary = re.sub(r"\r\n", "\n", summary).strip()
+        clean_summary = re.sub(r"\n{3,}", "\n\n", clean_summary)
 
         self.current_factuality_report = clean_summary
         self.pending_typing_text = clean_summary
@@ -105,7 +106,7 @@ class TelegramBotService:
         escaped_body = html.escape(clean_summary)
 
         msg = (
-            f"📊 <b>{escaped_title}</b>\n"
+            f"📊 <b>{escaped_title}</b>\n\n"
             f"{escaped_body}\n\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"<i>🤖 是否需要在电脑当前光标处自动打出此报告？</i>"

@@ -40,23 +40,37 @@ FACTUALITY AUDITING INTEGRITY & ANTI-HALLUCINATION SAFEGUARDS (CRITICAL):
    - Do not unfairly favor a model that gave vague or evasive answers over a model that provided specific, real-world regional information.
 2. Temporal Grounding:
    - Check whether events referenced match the realistic timeline relative to {now_str}. An event scheduled for the current autumn season is legitimate and should not be mistaken for past spring events.
-3. Factuality & Truthfulness: Hallucinations, factual mistakes, false dates, fabricated details, and scientific/historical inaccuracies.
-4. Topic Retention & Anti-Drift: Did the model stay focused on the true topic? Did it get baited by distraction traps (e.g., when a user mentions an aborted thought like "算了不说了，回到跑步" and the model inappropriately chases the aborted topic or asks "what did you want to say?")?
-5. Contextual Consistency & Logic: Logical contradictions, failure to follow conversational intent, or unnecessary tangents.
 
-STRICT OUTPUT FORMAT RULES:
+STRICT EVALUATION SCOPE & TWO-DIMENSION OUTPUT FORMAT:
+You MUST divide your evaluation into EXACTLY TWO DIMENSIONS, formatted as TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE:
+
+PARAGRAPH 1: Conversational Dynamics
+- MUST start with: "For conversational dynamics I prefer [Model A / Model B / neither model]."
+- Scope: Evaluates conversation flow, formatting, dialogue habits, artificial search-simulation intros (e.g. "收到，我去查一下...", "好的，我去确认一下..."), anti-drift capability (e.g. handling aborted thoughts like "算了不说了" without inappropriately chasing tangents), directness, tone, and naturalness.
+- Provide detailed justification referencing specific Turn [X] turns and behaviors.
+
+(EXACTLY ONE BLANK LINE SEPARATOR)
+
+PARAGRAPH 2: Utility
+- MUST start with: "For utility I prefer [Model A / Model B / neither model]."
+- Scope: Evaluates factuality, truthfulness, precision of domain knowledge (laws, regulations, articles, thresholds, dates, numbers, formulas, technical details), whether facts are correctly stated vs misstated, and verified Ground Truth.
+- Provide detailed justification referencing specific Turn [X] factual statements and the verified Ground Truth.
+
+REFERENCE BENCHMARK EXAMPLE:
+For conversational dynamics I prefer Model A. Model B exhibited severe formatting and dialogue habit flaws, opening Turn 2, Turn 4, and Turn 6 with artificial search-simulation intros ("收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") instead of providing natural direct responses.
+
+For utility I prefer Model A. Model B, in turn 6, misstated the voting thresholds under Article 278 of the Chinese Civil Code for dismissing property management, claiming that approval requires two-thirds of total area and homeowners, whereas the legal requirement is a two-thirds participation quorum followed by a simple majority (>50%) approval among participating votes.
+
+STRICT FORMAT RULES:
 - Output MUST be 100% in English.
-- TERMINOLOGY REQUIREMENT: Always refer to dialogue turns strictly as "Turn 1", "Turn 2", "Turn 3", etc. NEVER use "Round 1", "Round 2", etc.
-- CRITICAL FORMAT REQUIREMENT - NO PARAGRAPH BREAKS (DO NOT SEGMENT / 不要分段):
-  * The entire evaluation MUST be provided as a SINGLE, continuous, cohesive block of text without ANY paragraph breaks, blank lines, or markdown headers (do NOT use ### headers, do NOT use blank lines, do NOT split into paragraphs).
-  * Synthesize your analysis into one flowing paragraph covering:
-    (1) Verdict: Directly and decisively state which model performed better in truthfulness and anti-drift, or if they are comparable.
-    (2) Model A Flaws: Detail each flaw with Turn [X] and the verified Ground Truth / expected behavior (or state "Model A: Flawless - No flaws detected").
-    (3) Model B Flaws: Detail each flaw with Turn [X] and the verified Ground Truth / expected behavior (or state "Model B: Flawless - No flaws detected").
-  * Use inline structure within the single paragraph, such as:
-    Verdict: [Summary comparison]. Model A: [Turn X error and Ground Truth, or Flawless - No flaws detected]. Model B: [Turn X error and Ground Truth, or Flawless - No flaws detected].
-- The summary length must be ADAPTIVE: concise if few flaws, thorough yet compact if multiple flaws.
-- Do not include greetings, introductions, markdown headers, bullet lists, or closing remarks. Everything must be in one single unbroken paragraph.
+- Always refer to dialogue turns strictly as "Turn 1", "Turn 2", "Turn 3", etc. NEVER use "Round 1", "Round 2".
+- EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
+- Each paragraph MUST start with the required sentence:
+  Paragraph 1: "For conversational dynamics I prefer [Model A / Model B / neither model]. [Reasons...]"
+  Paragraph 2: "For utility I prefer [Model A / Model B / neither model]. [Reasons...]"
+- NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
+- NO bullet points (*, -) or numbered lists. Write flowing prose within each paragraph.
+- NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -90,7 +104,7 @@ class FactualityEvaluator:
 
         # Verified active candidate models in priority order
         candidate_models = [self.primary_model]
-        for fallback in ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite"]:
+        for fallback in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash"]:
             if fallback not in candidate_models:
                 candidate_models.append(fallback)
 
@@ -100,7 +114,7 @@ class FactualityEvaluator:
                 logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2)...")
                 result, error_msg = self._call_model(model, user_content)
                 if result:
-                    return self.clean_single_paragraph(result)
+                    return self.clean_evaluation_report(result)
 
                 last_error = error_msg
                 # If Google returns temporary 503 high demand or 429
@@ -114,22 +128,57 @@ class FactualityEvaluator:
         return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
 
     @staticmethod
-    def clean_single_paragraph(text: str) -> str:
-        """Sanitizes text so it is strictly a single continuous paragraph without paragraph breaks (不要分段)."""
+    def clean_evaluation_report(text: str) -> str:
+        """
+        Sanitizes evaluation text into exactly two dimensions separated by a single blank line:
+        1. For conversational dynamics I prefer...
+        [blank line]
+        2. For utility I prefer...
+        """
         if not text:
             return ""
-        # Convert markdown headers to inline labels
-        text = re.sub(r"###\s*The Verdict[:\s]*", "Verdict: ", text, flags=re.IGNORECASE)
-        text = re.sub(r"###\s*Model A'?s?\s*Flaws?[:\s]*", "Model A: ", text, flags=re.IGNORECASE)
-        text = re.sub(r"###\s*Model B'?s?\s*Flaws?[:\s]*", "Model B: ", text, flags=re.IGNORECASE)
-        text = re.sub(r"###\s*", "", text)
-        # Convert bullet points to inline delimiters
-        text = re.sub(r"(\r?\n)\s*[\*\-•]\s*", " | ", text)
-        # Replace remaining newlines/carriage returns with space
-        text = re.sub(r"[\r\n]+", " ", text)
-        # Collapse multiple spaces into one
-        text = re.sub(r"\s{2,}", " ", text).strip()
-        return text
+
+        # Remove bullet points
+        text = re.sub(r"(\r?\n)\s*[\*\-•]\s*", " ", text)
+
+        # Locate 'For conversational dynamics' to strip any preceding title/headers
+        cd_match = re.search(r"(For\s+conversational\s+dynamics\s+I\s+prefer.*)", text, flags=re.IGNORECASE | re.DOTALL)
+        if cd_match:
+            text = cd_match.group(1).strip()
+
+        # Look for the split between conversational dynamics and utility
+        match = re.search(r"(For\s+utility\s+I\s+prefer.*)", text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            p2 = match.group(1).strip()
+            p1 = text[:match.start()].strip()
+        else:
+            # Fallback: split on double newline
+            parts = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+            if len(parts) >= 2:
+                p1 = parts[0]
+                p2 = " ".join(parts[1:])
+            else:
+                p1 = text.strip()
+                p2 = ""
+
+        # Remove any trailing markdown headers from p1 (e.g. ### Utility)
+        p1 = re.sub(r"###.*$", "", p1).strip()
+        # Normalize internal spacing of paragraph 1
+        p1 = re.sub(r"[\r\n]+", " ", p1)
+        p1 = re.sub(r"\s{2,}", " ", p1).strip()
+
+        # Normalize internal spacing of paragraph 2
+        if p2:
+            p2 = re.sub(r"###.*$", "", p2).strip()
+            p2 = re.sub(r"[\r\n]+", " ", p2)
+            p2 = re.sub(r"\s{2,}", " ", p2).strip()
+            return f"{p1}\n\n{p2}"
+        return p1
+
+    @classmethod
+    def clean_single_paragraph(cls, text: str) -> str:
+        """Backwards-compatibility alias for clean_evaluation_report."""
+        return cls.clean_evaluation_report(text)
 
     def _call_model(self, model_name: str, user_content: str) -> tuple[Optional[str], str]:
         # 1. Try google-genai SDK first
