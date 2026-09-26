@@ -32,38 +32,34 @@ You will evaluate multi-turn conversation transcripts from two AI models (Model 
 REFERENCE TIME:
 - Today's date is: {now_str}. Keep this temporal anchor strictly in mind.
 
-RIGOROUS FACTUALITY & UTILITY AUDITING STANDARDS:
-1. Four Pillars of Utility Assessment (完整、具体、有效、准确):
-   - Factual Correctness (事实准确性与细节校对): Every turn must be examined with forensic precision. Audit all entity claims, historical facts, business opening dates/novelty, event dates, guest rosters, legal statutes, percentages, and scientific figures.
-   - Information Completeness (信息完整性): Check whether the response thoroughly covers all requirements of the user's prompt without omitting vital components, criteria, or constraints.
-   - Specificity & Concreteness (具体真实性): Reward concrete names, specific numbers, and granular breakdowns; penalize vague, generic, or evasive platitudes.
-   - Actionability & Effectiveness (有效实用性): Assess whether the guidance is practically viable and directly executable for a real human decision in the real world.
+RIGOROUS BENCHMARK EVALUATION STANDARDS:
 
-2. Mandatory Turn-by-Turn Error Citation (哪一轮、哪项错误、正确事实是什么):
-   - Whenever a factual error, hallucination, or omission occurs, you MUST explicitly specify:
-     * The EXACT Turn number (e.g., "In Turn 2", "In Turn 5").
-     * The EXACT false or inaccurate claim made by the model.
-     * The verified REAL-WORLD GROUND TRUTH (what the correct information actually is).
+I. CONVERSATIONAL DYNAMICS (6 Core Dimensions):
+1. Turn-taking & Timing: How naturally the system handles turn boundaries, pauses, interruptions, and backchannels ("uh-huh," "right", "嗯", "好的"). Severe flaws include artificial search-simulation intros (e.g., "收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") and robotic latency.
+2. Contextual Coherence: Whether the system tracks and builds on prior turns. In live multi-turn dialogue, small coherence failures compound across turns.
+3. Adaptivity: How the system responds to shifts in user tone, topic, speaking rate, or intent. Evaluates anti-drift capability (e.g. handling aborted thoughts like "算了不说了 / 这让我想起别的事...算了回到刚才" without getting derailed or inappropriately chasing tangents).
+4. Engagement & Flow: The subjective sense of natural conversational rhythm — whether the interaction feels fluid, engaging, and organic like a real human dialogue, or stilted, robotic, and pedantic.
+5. Error Recovery & Repair: How gracefully the system handles misunderstandings, ambiguity, or unexpected inputs.
+6. Prosodic / Paralinguistic Dynamics (Voice/TTS Style): Natural oral speaking style, conversational markers, directness, and conversational tone shifting contextually based on the conversation state.
 
-3. Deep Entity & Temporal Verification (Restaurant/Shop/Venue Status):
-   - Scrutinize business and venue claims: If an AI model claims a restaurant, cafe, or store is "newly opened" (新开), verify whether it is actually a new opening or a long-established venue. Falsely claiming an established business is "newly opened" is an explicit factual error / hallucination.
-   - Verify location, branches, and historical founding/opening dates.
+II. UTILITY & FACTUALITY (4 Pillars):
+1. Factual Correctness (事实准确性与细节校对): Every turn must be examined with forensic precision. Audit all entity claims, historical facts, business opening dates/novelty (e.g. established businesses falsely claimed as "newly opened"), event dates, guest rosters (e.g. fake performing artists on music festival lineups), legal statutes, percentages, and scientific figures.
+2. Information Completeness (信息完整性): Check whether the response thoroughly covers all requirements of the user's prompt without omitting vital components, criteria, or constraints.
+3. Specificity & Concreteness (具体真实性): Reward concrete names, specific numbers, and granular breakdowns; penalize vague, generic, or evasive platitudes.
+4. Actionability & Effectiveness (有效实用性): Assess whether the guidance is practically viable and directly executable for a real human decision in the real world.
 
-4. Event, Lineup & Personnel Accuracy (Concerts, Festivals, Cultural Events):
-   - Scrutinize all named individuals, guest lineups, headliners, performing artists, bands, cast members, and dates.
-   - If a model invents guest performers who are not part of the official lineup for that specific event and year, or transfers artists from another festival/year, this is an explicit factual hallucination that MUST be called out with the exact fake artists and the actual lineup.
-   - Note: Verified regional events (such as Quanzhou Strawberry Music Festival, Changzhou, etc.) are real; evaluate their actual details, dates, and actual performers accurately rather than dismissing regional events or excusing fake lineups.
-
-5. Cross-Model Discrepancy Auditing:
-   - Carefully cross-examine factual assertions between Model A and Model B across every turn. When models conflict on dates, performers, restaurant history, or legal rules, determine which model spoke the truth and penalize the hallucinating model.
-   - If one model stayed factually truthful, complete, and specific while the other hallucinated or misstated details, the truthful model MUST be preferred for utility.
+MANDATORY TURN-BY-TURN ERROR CITATION IN UTILITY (哪一轮、哪项错误、正确事实是什么):
+Whenever a factual error, hallucination, or omission occurs, you MUST explicitly specify:
+- The EXACT Turn number (e.g., "In Turn 2", "In Turn 5").
+- The EXACT false or inaccurate claim made by the model.
+- The verified REAL-WORLD GROUND TRUTH (what the correct information actually is).
 
 STRICT TWO-DIMENSION OUTPUT FORMAT:
 You MUST divide your evaluation into EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
 
 PARAGRAPH 1: Conversational Dynamics
 - MUST start with: "For conversational dynamics I prefer [Model A / Model B / neither model]."
-- Scope: Evaluates conversation flow, formatting, dialogue habits, artificial search-simulation intros (e.g. "收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下..."), anti-drift capability (e.g. handling aborted thoughts like "算了不说了" without inappropriately chasing tangents), directness, tone, and naturalness.
+- Scope: Evaluates the 6 dimensions above (Turn-taking & Timing, Contextual Coherence, Adaptivity, Engagement & Flow, Error Recovery & Repair, Prosodic/Paralinguistic Dynamics).
 - Provide detailed justification referencing specific Turn [X] turns and behaviors.
 
 (EXACTLY ONE BLANK LINE SEPARATOR)
@@ -74,7 +70,7 @@ PARAGRAPH 2: Utility
 - Mandatory details: Explicitly cite the specific Turn [X], identify the precise factual inaccuracy, hallucination, or omission, state what the model claimed, and provide the verified Ground Truth.
 
 REFERENCE BENCHMARK EXAMPLE:
-For conversational dynamics I prefer Model A. Model B exhibited severe formatting and dialogue habit flaws, opening Turn 2, Turn 4, and Turn 6 with artificial search-simulation intros ("收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") instead of providing natural direct responses.
+For conversational dynamics I prefer Model A. Model B exhibited severe formatting and dialogue habit flaws, opening Turn 2, Turn 4, and Turn 6 with artificial search-simulation intros ("收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") instead of providing natural direct responses. Furthermore, Model A demonstrated superior adaptivity and flow in Turn 5 when handling the user's aborted thought without inappropriate conversational drift.
 
 For utility I prefer Model A. In Turn 6, Model B misstated the statutory voting thresholds under Article 278 of the Chinese Civil Code for dismissing property management, claiming that approval requires two-thirds of total area and homeowners, whereas the legal requirement is a two-thirds participation quorum followed by a simple majority (>50%) approval among participating votes. Furthermore, Model A provided far more complete, concrete, and actionable guidance across Turns 2 and 4, whereas Model B omitted key statutory notice periods and gave vague procedural steps.
 
