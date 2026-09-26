@@ -43,7 +43,12 @@ I. CONVERSATIONAL DYNAMICS (6 Core Dimensions):
 6. Prosodic / Paralinguistic Dynamics (Voice/TTS Style): Natural oral speaking style, conversational markers, directness, and conversational tone shifting contextually based on the conversation state.
 
 II. UTILITY & FACTUALITY (4 Pillars):
-1. Factual Correctness (事实准确性与细节校对): Every turn must be examined with forensic precision. Audit all entity claims, historical facts, business opening dates/novelty (e.g. established businesses falsely claimed as "newly opened"), event dates, guest rosters (e.g. fake performing artists on music festival lineups), legal statutes, percentages, and scientific figures.
+1. Factual Correctness & Forensic Verification (无死角事实细节校对): Every single turn must be examined with forensic precision across ALL domains:
+   - Entities & Commercial Venues (Restaurants, stores, attractions, companies): Audit real founding/opening dates (e.g. established spots falsely claimed as "newly opened"), addresses, Michelin/rating statuses, and operational facts.
+   - Events, Culture & Entertainment (Festivals, concerts, films, series, sports): Audit exact lineups, performing artists, casts, directors, release/event dates, host cities, venues, and ticket tiers. Any invented artist, false date, or hallucinated credit is an explicit error.
+   - Laws & Regulations (Civil, Commercial, Labor, Criminal codes): Audit exact article numbers, statutory voting quorums, approval thresholds, deadlines, and legal procedures against strict real-world law.
+   - Science, Fitness & Technical (Training pacing, heart-rate zones, medical/physiological facts, formulas): Audit technical and quantitative precision.
+   - Numbers & Timeline: Audit dates, years, percentages, prices, and statistics.
 2. Information Completeness (信息完整性): Check whether the response thoroughly covers all requirements of the user's prompt without omitting vital components, criteria, or constraints.
 3. Specificity & Concreteness (具体真实性): Reward concrete names, specific numbers, and granular breakdowns; penalize vague, generic, or evasive platitudes.
 4. Actionability & Effectiveness (有效实用性): Assess whether the guidance is practically viable and directly executable for a real human decision in the real world.
