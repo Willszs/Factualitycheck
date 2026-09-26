@@ -126,6 +126,18 @@ class TestFactualityComponents(unittest.TestCase):
         bot._handle_duration_reply("十五轮")
         self.assertEqual(bot.total_rounds, 15)
 
+    def test_question_generator_placeholder_sanitation(self):
+        qg = QuestionGenerator({"gemini_api_key": "test_key"})
+        raw_text = "【提问内容】: 哎，最近除了某某电影，电影院还有什么好看的片子吗？\n【测试关注点】: 考察事实。"
+        cleaned = qg._clean_output(raw_text)
+        self.assertNotIn("某某电影", cleaned)
+        self.assertIn("《抓娃娃》", cleaned)
+
+        raw_text2 = "【提问内容】: 听说某某话剧最近很火，票价值得吗？"
+        cleaned2 = qg._clean_output(raw_text2)
+        self.assertNotIn("某某话剧", cleaned2)
+        self.assertIn("《暗恋桃花源》", cleaned2)
+
     def test_telegram_bot_state_flow(self):
         bot = TelegramBotService(self.sample_config)
         self.assertEqual(bot.state, "IDLE")

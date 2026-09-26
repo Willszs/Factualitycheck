@@ -31,9 +31,14 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
    - STRICT LENGTH LIMIT: Every question MUST be natural, succinct, authentic everyday spoken Chinese, strictly between 30 and 65 Chinese characters (takes only 5 to 10 seconds to read aloud).
    - STRICTLY PROHIBITED: NEVER generate written exam questions or formatted instructions (e.g. NEVER output "请完成以下3项任务：1.事实准确性 2.以表格形式... 3.价值评估..."). Real humans in voice conversations do not speak like an exam paper!
 
-2. ZERO HALLUCINATED PREMISES IN THE QUESTION (严禁在提问中凭空捏造虚假信息):
-   - NEVER fabricate unverified facts into the user's mouth: do NOT invent fake weather ("听说这周末下雨"), fake theatrical plays/dramas ("还想看某某话剧"), or expired past events (e.g. Shanghai Strawberry Music Festival is in spring; do NOT claim it is happening now).
-   - Let the TESTED AI provide the facts! Frame the question with natural spoken curiosity so the tested AI is forced to provide genuine, verifiable real-time facts (e.g. asking which city recently announced, dates, headliners, and ticketing).
+2. ZERO HALLUCINATED PREMISES & ZERO LAZY PLACEHOLDERS (严禁虚假捏造，绝对严禁任何占位符):
+   - ABSOLUTE BAN ON PLACEHOLDERS (绝对禁止占位符): NEVER generate lazy generic placeholders like "某某电影", "某部电影", "某某话剧", "某某歌手", "某某", "XX", "[电影名]", "[待填]". The user speaks this question aloud into a phone microphone and CANNOT read placeholders, nor should the user ever have to search for names!
+   - 100% REAL ENTITY GROUNDING (必须真实具名): When citing or referring to any work, event, or entity (movies, TV shows, music festivals, singers, plays, books, exhibitions), you MUST provide a 100% REAL, SPECIFIC, VERIFIABLE, WELL-KNOWN entity name (e.g. for movies: 《抓娃娃》、《热辣滚烫》、《第二十条》、《沙丘2》; for plays: 《暗恋桃花源》、《如梦之梦》; for festivals: 草莓音乐节).
+   - If not naming a specific work, frame the question with natural spoken curiosity so the tested AI provides the recommendations:
+     * Good: "哎，最近院线除了《抓娃娃》之外，还有什么口碑特别好的电影在上映吗？你觉得哪部最值得买票去看？"
+     * Good: "哎，最近电影院正在上映的片子里，哪几部排片和口碑最高啊？你觉得哪部最值回票价？"
+     * FORBIDDEN: "最近除了某某电影，你还推荐什么？" (STRICTLY PROHIBITED!)
+   - ZERO FABRICATION OF FAKE WEATHER/EVENTS: Do not invent fake weather or claim expired events are happening now. Let the tested AI provide the facts!
 
 3. ORGANIC SKILL PROBING (自然口语融合考察):
    - How to probe '事实准确性 + 结构化表达 + 价值评估' in ONE short spoken sentence:
@@ -109,18 +114,47 @@ class QuestionGenerator:
             f"=== 核心原则与严厉禁止 ===\n"
             f"1. 严格口语字数限制：【提问内容】必须在 30 ~ 65 字以内，口语极其自然流畅，绝对不要长篇大论，绝不能念出来超过10秒！\n"
             f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
-            f"3. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的话剧、或虚构早过期的往届音乐节（如春季上海草莓）。让被测 AI 自己去说出真实的事实！\n"
-            f"4. 格式：直接以【提问内容】开头。\n"
+            f"3. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
+            f"4. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
+            f"5. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content)
-        return self._clean_output(raw_result)
+        cleaned_result = self._clean_output(raw_result)
+        logger.info(f"Generated question (R{current_round}/{total_rounds}):\n{cleaned_result}")
+        return cleaned_result
 
     def _clean_output(self, text: str) -> str:
         text = text.strip()
         idx = text.find("【提问内容】")
         if idx != -1:
             text = text[idx:]
+
+        # Post-processing safeguard: Strip any lazy placeholders like "某某电影" or "某某话剧"
+        placeholder_replacements = [
+            ("某某电影", "《抓娃娃》"),
+            ("某部电影", "《抓娃娃》"),
+            ("某某电视剧", "《庆余年第二季》"),
+            ("某某剧", "《庆余年第二季》"),
+            ("某某话剧", "《暗恋桃花源》"),
+            ("某某音乐节", "草莓音乐节"),
+            ("某某歌手", "周杰伦"),
+            ("某某明星", "周杰伦"),
+            ("某某专辑", "新专辑"),
+            ("某某书籍", "《三体》"),
+            ("某某书", "《三体》"),
+            ("【某某电影】", "《抓娃娃》"),
+            ("[某某电影]", "《抓娃娃》"),
+            ("[电影名]", "《抓娃娃》"),
+            ("某某", "热门佳作"),
+            ("XX电影", "《抓娃娃》"),
+            ("XX", "知名佳作"),
+        ]
+        for ph, rep in placeholder_replacements:
+            if ph in text:
+                logger.warning(f"Sanitizing placeholder '{ph}' -> '{rep}' in question output")
+                text = text.replace(ph, rep)
+
         return text.strip()
 
     def _call_gemini(self, user_content: str) -> str:
