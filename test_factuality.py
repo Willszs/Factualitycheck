@@ -148,6 +148,33 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertEqual(bot.topic, "测试主题：明朝历史")
         bot._send_message.assert_called_once()
 
+    def test_end_dialogue_standby_button(self):
+        bot = TelegramBotService(self.sample_config)
+        bot._send_message = MagicMock(return_value=True)
+
+        bot.state = "INTERACTIVE_QUESTIONS"
+        bot.topic = "测试电影主题"
+        bot.total_rounds = 3
+        bot.current_round = 1
+
+        # Check question card includes "action_end_dialogue" button
+        bot._deliver_question_card(1, "【提问内容】: 测试问题\n【测试关注点】: 事实")
+        last_call_kwargs = bot._send_message.call_args[1]
+        buttons = [b["callback_data"] for row in last_call_kwargs["reply_markup"]["inline_keyboard"] for b in row]
+        self.assertIn("action_end_dialogue", buttons)
+
+        # Trigger "action_end_dialogue"
+        bot._handle_callback_data("action_end_dialogue", message_id=456)
+        self.assertEqual(bot.state, "IDLE")
+        self.assertEqual(bot.topic, "")
+        self.assertEqual(bot.total_rounds, 0)
+        self.assertEqual(bot.current_round, 1)
+
+        # Subsequent click on "action_next_round" should reject gracefully
+        bot._send_message.reset_mock()
+        bot._handle_callback_data("action_next_round", message_id=456)
+        bot._send_message.assert_called_with("⚠️ 当前没有进行中的评测。程序处于 Standby 状态，请在电脑桌面端提交新主题。")
+
     def test_factuality_report_delivery_and_edit_flow(self):
         bot = TelegramBotService(self.sample_config)
         bot._send_message = MagicMock(return_value=True)

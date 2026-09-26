@@ -276,6 +276,8 @@ class TelegramBotService:
         else:
             keyboard.append([{"text": "✅ 完成测试，准备对比", "callback_data": "action_finish"}])
 
+        keyboard.append([{"text": "⏹️ 结束本轮对话", "callback_data": "action_end_dialogue"}])
+
         reply_markup = {"inline_keyboard": keyboard}
         self._send_message(msg, reply_markup=reply_markup)
 
@@ -364,6 +366,10 @@ class TelegramBotService:
 
         # --- Question Design Actions ---
         elif data == "action_change_q":
+            if self.state != "INTERACTIVE_QUESTIONS" or not self.topic:
+                self._send_message("⚠️ 当前没有进行中的评测。程序处于 Standby 状态，请在电脑桌面端提交新主题。")
+                return
+
             self._send_chat_action("typing")
             self._send_message(f"🔄 正在为您换一个全新角度的第 {self.current_round} 轮提问...")
 
@@ -383,6 +389,10 @@ class TelegramBotService:
             self._deliver_question_card(self.current_round, new_q)
 
         elif data == "action_next_round":
+            if self.state != "INTERACTIVE_QUESTIONS" or not self.topic:
+                self._send_message("⚠️ 当前没有进行中的评测。程序处于 Standby 状态，请在电脑桌面端提交新主题。")
+                return
+
             if self.current_round < self.total_rounds:
                 self.current_round += 1
                 self._send_chat_action("typing")
@@ -403,6 +413,20 @@ class TelegramBotService:
 
         elif data == "action_finish":
             self._finish_flow()
+
+        elif data == "action_end_dialogue":
+            self.state = "IDLE"
+            self.topic = ""
+            self.current_round = 1
+            self.total_rounds = 0
+            self.history_questions = []
+            self.duration_desc = ""
+            standby_msg = (
+                "⏹️ <b>本轮对话已结束。</b>\n\n"
+                "程序已进入 <b>Standby（待命）</b> 状态，等待下一轮新题目。\n"
+                "随时在电脑桌面端输入并提交新主题即可开始新测评！"
+            )
+            self._send_message(standby_msg)
 
     def _execute_typing_task(self, text: str, message_id: Optional[int]):
         """Runs typing simulation in background and notifies user on completion."""
