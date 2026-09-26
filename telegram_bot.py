@@ -202,7 +202,12 @@ class TelegramBotService:
     def _handle_duration_reply(self, text: str):
         """User replied with duration/rounds."""
         text_clean = text.strip()
-        cn_to_num = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+        cn_to_num = {
+            "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+            "十一": 11, "十二": 12, "十三": 13, "十四": 14, "十五": 15,
+            "十六": 16, "十七": 17, "十八": 18, "十九": 19, "二十": 20,
+        }
 
         # Check if duration mentions minutes (分钟/分)
         is_minutes = "分" in text_clean or "min" in text_clean.lower()
@@ -212,22 +217,23 @@ class TelegramBotService:
         if digits:
             num_val = int(digits[0])
         else:
-            for cn_char, val in cn_to_num.items():
-                if cn_char in text_clean:
+            for cn_str, val in sorted(cn_to_num.items(), key=lambda x: len(x[0]), reverse=True):
+                if cn_str in text_clean:
                     num_val = val
                     break
 
         if is_minutes:
-            minutes = num_val or 3
-            # A 3-minute oral conversation realistically fits 3-4 turns
-            self.total_rounds = max(2, min(minutes, 5))
+            minutes = num_val or 10
+            # 1 minute per turn pacing: 10 mins -> 10 rounds, 15 mins -> 15 rounds
+            self.total_rounds = max(1, min(minutes, 30))
             self.duration_desc = f"{minutes}分钟真人嘴巴口语交流（每轮发问30-65字，5-10秒念完）"
         elif num_val:
-            self.total_rounds = max(1, min(num_val, 8))
+            # User explicitly requested N rounds (e.g. 15轮) -> Give exactly N rounds!
+            self.total_rounds = max(1, min(num_val, 30))
             self.duration_desc = f"{self.total_rounds}轮真人口语交流（每轮发问30-65字，5-10秒念完）"
         else:
-            self.total_rounds = 3
-            self.duration_desc = "3分钟真人嘴巴口语交流（每轮发问30-65字，5-10秒念完）"
+            self.total_rounds = 5
+            self.duration_desc = "真人嘴巴口语交流（每轮发问30-65字，5-10秒念完）"
 
         self.state = "INTERACTIVE_QUESTIONS"
         self.current_round = 1

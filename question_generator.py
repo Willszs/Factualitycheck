@@ -62,7 +62,7 @@ class QuestionGenerator:
             or os.environ.get("GEMINI_API_KEY", "")
         ).strip()
         self.primary_model = config.get("gemini_model", "gemini-3.6-flash").strip()
-        self.candidate_models = [self.primary_model, "gemini-3.8-flash", "gemini-3.1-flash-lite"]
+        self.candidate_models = [self.primary_model, "gemini-3.1-flash-lite", "gemini-3.8-flash"]
 
     def generate_question(
         self,
@@ -126,49 +126,55 @@ class QuestionGenerator:
     def _call_gemini(self, user_content: str) -> str:
         system_prompt = get_system_prompt()
         for model in self.candidate_models:
-            for attempt in range(1, 3):
-                # 1. Try google-genai SDK
-                try:
-                    from google import genai
-                    from google.genai import types
+            # 1. Try google-genai SDK
+            try:
+                from google import genai
+                from google.genai import types
 
-                    client = genai.Client(api_key=self.api_key)
-                    resp = client.models.generate_content(
-                        model=model,
-                        contents=user_content,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_prompt,
-                            temperature=0.7,
-                        ),
-                    )
-                    if resp and resp.text:
-                        return resp.text.strip()
-                except Exception as e:
-                    logger.warning(f"SDK call to {model} failed ({e}), trying REST...")
+                client = genai.Client(api_key=self.api_key)
+                resp = client.models.generate_content(
+                    model=model,
+                    contents=user_content,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.7,
+                    ),
+                )
+                if resp and resp.text:
+                    return resp.text.strip()
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    logger.warning(f"Model {model} hit 429 quota limit, switching to next model immediately...")
+                    continue
+                logger.warning(f"SDK call to {model} failed ({e}), trying REST...")
 
-                # 2. Try REST via requests
-                if requests is not None:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
-                    payload = {
-                        "system_instruction": {"parts": [{"text": system_prompt}]},
-                        "contents": [{"parts": [{"text": user_content}]}],
-                        "generationConfig": {"temperature": 0.7},
-                    }
-                    for verify in [True, False]:
-                        try:
-                            resp = requests.post(url, json=payload, timeout=30, verify=verify)
-                            if resp.status_code == 200:
-                                data = resp.json()
-                                candidates = data.get("candidates", [])
-                                if candidates:
-                                    parts = candidates[0].get("content", {}).get("parts", [])
-                                    if parts:
-                                        return parts[0].get("text", "").strip()
-                            elif resp.status_code == 503:
-                                time.sleep(2)
-                        except Exception:
-                            if not verify:
-                                break
+            # 2. Try REST via requests
+            if requests is not None:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+                payload = {
+                    "system_instruction": {"parts": [{"text": system_prompt}]},
+                    "contents": [{"parts": [{"text": user_content}]}],
+                    "generationConfig": {"temperature": 0.7},
+                }
+                for verify in [True, False]:
+                    try:
+                        resp = requests.post(url, json=payload, timeout=30, verify=verify)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            candidates = data.get("candidates", [])
+                            if candidates:
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                if parts:
+                                    return parts[0].get("text", "").strip()
+                        elif resp.status_code == 429:
+                            logger.warning(f"Model {model} REST 429 quota, moving to next model...")
+                            break
+                        elif resp.status_code == 503:
+                            time.sleep(2)
+                    except Exception:
+                        if not verify:
+                            break
 
         return (
             "【提问内容】: 结合该主题的核心概念，能详细分析其发展演变中的关键转折点及争议事实吗？\n"

@@ -113,9 +113,18 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertEqual(bot.total_rounds, 3)
         self.assertIn("3分钟真人嘴巴口语交流", bot.duration_desc)
 
-        # Test Arabic numerals and rounds
-        bot._handle_duration_reply("5轮")
-        self.assertEqual(bot.total_rounds, 5)
+        # Test 10 minutes gives 10 rounds
+        bot._handle_duration_reply("10分钟")
+        self.assertEqual(bot.total_rounds, 10)
+        self.assertIn("10分钟真人嘴巴口语交流", bot.duration_desc)
+
+        # Test Arabic numerals and 15 rounds
+        bot._handle_duration_reply("15轮")
+        self.assertEqual(bot.total_rounds, 15)
+
+        # Test Chinese numerals fifteen rounds
+        bot._handle_duration_reply("十五轮")
+        self.assertEqual(bot.total_rounds, 15)
 
     def test_telegram_bot_state_flow(self):
         bot = TelegramBotService(self.sample_config)
