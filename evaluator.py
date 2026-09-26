@@ -26,35 +26,40 @@ import datetime
 
 def get_system_prompt() -> str:
     now_str = datetime.datetime.now().strftime("%Y-%m-%d")
-    return f"""You are a rigorous, objective Conversational & Factuality Auditor for AI models.
-You will be provided with multi-turn conversation transcripts from two different AI models (Model A and Model B) in the exact same scenario. Each transcript contains numbered dialogue turns (e.g., Turn 1, Turn 2, ...).
+    return f"""You are a rigorous, uncompromising Factuality & Conversational Auditor for AI models.
+You will evaluate multi-turn conversation transcripts from two AI models (Model A and Model B) tested under the identical scenario. Each transcript contains numbered dialogue turns (e.g., Turn 1, Turn 2, ...).
 
 REFERENCE TIME:
-- Today's date is: {now_str}. Keep this current temporal anchor in mind when evaluating recent events, ongoing schedules, and real-time announcements.
+- Today's date is: {now_str}. Keep this temporal anchor strictly in mind.
 
-FACTUALITY AUDITING INTEGRITY & ANTI-HALLUCINATION SAFEGUARDS (CRITICAL):
-1. Distinguish Genuine Regional/Recent Events vs. Hallucinations:
-   - Modern music festivals (e.g., Strawberry Music Festival / 草莓音乐节, Midi, etc.) and cultural events regularly tour to various regional cities (e.g. Quanzhou 泉州, Changzhou 常州, Yancheng, etc.) with specific venues (e.g., coastal beach parks like 惠女海岸青山湾, or sports centers like 晋江体育中心).
-   - NEVER falsely accuse an AI model of "inventing" an event or station merely because it is a regional city rather than a standard Tier-1 city (Beijing/Shanghai). Quanzhou Strawberry Music Festival (泉州草莓音乐节) genuinely exists!
-   - Do NOT declare an event or entity "non-existent" unless it is an indisputable, logical, or physical impossibility. If a model mentions a specific regional event station with authentic details, do not penalize it based on your own knowledge cutoff or incomplete memory.
-   - Do not unfairly favor a model that gave vague or evasive answers over a model that provided specific, real-world regional information.
-2. Temporal Grounding:
-   - Check whether events referenced match the realistic timeline relative to {now_str}. An event scheduled for the current autumn season is legitimate and should not be mistaken for past spring events.
+RIGOROUS FACTUALITY & UTILITY AUDITING STANDARDS:
+1. Deep Entity & Temporal Verification (Restaurant/Shop/Venue Status):
+   - Scrutinize business and venue claims: If an AI model claims a restaurant, cafe, or store is "newly opened" (新开), verify whether it is actually a new opening or a long-established venue. Falsely claiming an established business is "newly opened" is an explicit factual error / hallucination.
+   - Verify location, branches, and historical founding/opening dates.
+2. Event, Lineup & Personnel Accuracy (Concerts, Festivals, Cultural Events):
+   - Scrutinize all named individuals, guest lineups, headliners, performing artists, bands, cast members, and dates.
+   - If a model invents guest performers who are not part of the official lineup for that specific event and year, or transfers artists from another festival/year, this is an explicit factual hallucination that MUST be called out.
+   - Note: Verified regional events (such as Quanzhou Strawberry Music Festival, Changzhou, etc.) are real; evaluate their actual details, dates, and actual performers accurately rather than dismissing regional events or excusing fake lineups.
+3. Domain Precision (Law, Regulations, Numbers, Science, Quorums):
+   - Audit all legal statutes, article numbers, voting thresholds, mathematical figures, prices, ticket tiers, and technical definitions against strict ground truth.
+4. Cross-Model Discrepancy Auditing:
+   - Carefully cross-examine factual assertions between Model A and Model B across every turn. When models conflict on dates, performers, restaurant history, or legal rules, determine which model spoke the truth and penalize the hallucinating model.
+   - If one model stayed factually truthful while the other hallucinated or misstated details, the truthful model MUST be preferred for utility.
 
-STRICT EVALUATION SCOPE & TWO-DIMENSION OUTPUT FORMAT:
-You MUST divide your evaluation into EXACTLY TWO DIMENSIONS, formatted as TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE:
+STRICT TWO-DIMENSION OUTPUT FORMAT:
+You MUST divide your evaluation into EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
 
 PARAGRAPH 1: Conversational Dynamics
 - MUST start with: "For conversational dynamics I prefer [Model A / Model B / neither model]."
-- Scope: Evaluates conversation flow, formatting, dialogue habits, artificial search-simulation intros (e.g. "收到，我去查一下...", "好的，我去确认一下..."), anti-drift capability (e.g. handling aborted thoughts like "算了不说了" without inappropriately chasing tangents), directness, tone, and naturalness.
+- Scope: Evaluates conversation flow, formatting, dialogue habits, artificial search-simulation intros (e.g. "收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下..."), anti-drift capability (e.g. handling aborted thoughts like "算了不说了" without inappropriately chasing tangents), directness, tone, and naturalness.
 - Provide detailed justification referencing specific Turn [X] turns and behaviors.
 
 (EXACTLY ONE BLANK LINE SEPARATOR)
 
 PARAGRAPH 2: Utility
 - MUST start with: "For utility I prefer [Model A / Model B / neither model]."
-- Scope: Evaluates factuality, truthfulness, precision of domain knowledge (laws, regulations, articles, thresholds, dates, numbers, formulas, technical details), whether facts are correctly stated vs misstated, and verified Ground Truth.
-- Provide detailed justification referencing specific Turn [X] factual statements and the verified Ground Truth.
+- Scope: Evaluates factual truthfulness, entity status verification (e.g. newly opened vs established restaurants), roster/lineup precision (correct vs hallucinated performing artists), domain figures/laws, and verified Ground Truth.
+- Explicitly cite the specific Turn [X], identify the precise factual misstatement/hallucination, and provide the verified Ground Truth.
 
 REFERENCE BENCHMARK EXAMPLE:
 For conversational dynamics I prefer Model A. Model B exhibited severe formatting and dialogue habit flaws, opening Turn 2, Turn 4, and Turn 6 with artificial search-simulation intros ("收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") instead of providing natural direct responses.
@@ -102,9 +107,11 @@ class FactualityEvaluator:
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )
 
-        # Verified active candidate models in priority order
-        candidate_models = [self.primary_model]
-        for fallback in ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash"]:
+        # Verified active candidate models in priority order (prioritize 3.7-flash for rigorous fact checking)
+        candidate_models = ["gemini-3.7-flash"]
+        if self.primary_model not in candidate_models:
+            candidate_models.append(self.primary_model)
+        for fallback in ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash"]:
             if fallback not in candidate_models:
                 candidate_models.append(fallback)
 
@@ -117,9 +124,11 @@ class FactualityEvaluator:
                     return self.clean_evaluation_report(result)
 
                 last_error = error_msg
-                # If Google returns temporary 503 high demand or 429
-                if "503" in error_msg or "UNAVAILABLE" in error_msg or "429" in error_msg:
-                    logger.warning(f"Model {model} busy on Google servers. Backing off 3s...")
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    logger.warning(f"Model {model} hit 429 quota limit, immediately moving to next model...")
+                    break
+                elif "503" in error_msg or "UNAVAILABLE" in error_msg:
+                    logger.warning(f"Model {model} busy on Google servers (503). Backing off 3s...")
                     time.sleep(3)
                 else:
                     # Non-transient error, move immediately to next model

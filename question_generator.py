@@ -67,7 +67,7 @@ class QuestionGenerator:
             or os.environ.get("GEMINI_API_KEY", "")
         ).strip()
         self.primary_model = config.get("gemini_model", "gemini-3.6-flash").strip()
-        self.candidate_models = [self.primary_model, "gemini-3.1-flash-lite", "gemini-3.8-flash"]
+        self.candidate_models = ["gemini-3.7-flash", self.primary_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]
 
     def generate_question(
         self,
