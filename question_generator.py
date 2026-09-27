@@ -38,6 +38,10 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * Good: "哎，最近院线除了《抓娃娃》之外，还有什么口碑特别好的电影在上映吗？你觉得哪部最值得买票去看？"
      * Good: "哎，最近电影院正在上映的片子里，哪几部排片和口碑最高啊？你觉得哪部最值回票价？"
      * FORBIDDEN: "最近除了某某电影，你还推荐什么？" (STRICTLY PROHIBITED!)
+   - PRODUCT & DEVICE TOPICS (数码与消费电子产品测评规则):
+     * If the user's topic mentions generic newly released products (e.g. "一款新手机刚刚发布", "刚上市的新能源汽车") WITHOUT specifying an exact brand/model, DO NOT arbitrarily fabricate or guess a specific ungrounded model name (such as arbitrarily guessing "iPhone 17 Pro" or an unverified future/outdated model)!
+     * Instead, formulate the question using natural spoken curiosity, asking about "最近刚发布的最新款旗舰手机" or "最新开完发布会的各家新机", prompting the tested AI to demonstrate whether it accurately knows what phones actually just released, their real specs, and true shipping dates!
+     * Only name a specific model if the user's prompt explicitly designated that brand/model (e.g. "iPhone 16 Pro", "华为三折叠 Mate XT").
    - ZERO FABRICATION OF FAKE WEATHER/EVENTS: Do not invent fake weather or claim expired events are happening now. Let the tested AI provide the facts!
 
 3. ORGANIC SKILL PROBING (自然口语融合考察):
@@ -115,8 +119,9 @@ class QuestionGenerator:
             f"1. 严格口语字数限制：【提问内容】必须在 30 ~ 65 字以内，口语极其自然流畅，绝对不要长篇大论，绝不能念出来超过10秒！\n"
             f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
             f"3. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
-            f"4. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
-            f"5. 格式：直接以【提问内容】开头。\n"
+            f"4. 严禁数码产品胡乱强行指定未提及的型号：当测评主题为“一款新手机刚发布”等通用描述且未指定具体品牌型号时，严禁随意胡乱指定一个具体型号（如随意猜 iPhone 17 Pro）！应采用自然口语发问（如“哎，最近刚发布的最新旗舰手机都有哪些核心升级和新功能啊？和我现在用的旧机比值得换吗，一般啥时候发货？”），由被测 AI 在回答中展现其对最新发布产品的事实掌握！仅当用户主题明确指定了具体品牌型号时才具名。\n"
+            f"5. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
+            f"6. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content)
