@@ -44,17 +44,25 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * Only name a specific model if the user's prompt explicitly designated that brand/model (e.g. "iPhone 16 Pro", "华为三折叠 Mate XT").
    - ZERO FABRICATION OF FAKE WEATHER/EVENTS: Do not invent fake weather or claim expired events are happening now. Let the tested AI provide the facts!
 
-3. ORGANIC SKILL PROBING (自然口语融合考察):
-   - How to probe '事实准确性 + 结构化表达 + 价值评估' in ONE short spoken sentence:
-     Example: "哎，我听说最近好像有个草莓音乐节刚刚官宣了阵容？具体是在哪个城市、哪几天办啊？都有谁压轴演出，你觉得这票价值得冲吗？"
-   - This naturally compels the tested AI to:
-     * Factuality: Accurately state real-time facts (city, dates, actual lineup).
-     * Structure: Provide a structured breakdown of dates, schedule, and ticket tiers.
-     * Value Assessment: Evaluate the lineup quality vs price to provide a recommendation.
+3. STRICT TOPIC INDEPENDENCE & PURITY (各话题严格独立，严禁跨主题要求杂糅):
+   - EACH TOPIC IS 100% INDEPENDENT AND SELF-CONTAINED (话题绝对独立):
+     The generated questions MUST strictly adhere ONLY to the subject matter, domain, scenario, and specific goals of the CURRENT SUBMITTED TOPIC.
+   - ABSOLUTELY FORBIDDEN TO CROSS-CONTAMINATE TOPIC REQUIREMENTS (严禁杂糅其他话题的要求):
+     * NEVER inject anti-drift aborted thoughts (e.g. "哎，这让我想到个别的事——算了不想了。回到刚才那个...") UNLESS the current topic explicitly instructs you to test anti-drift / topic-switching!
+     * NEVER force ticket evaluation, price assessments, or consumer shopping metrics into academic, philosophical, historical, or scientific topics UNLESS the user explicitly asks for pricing or purchasing advice!
+     * If the topic is art history (e.g. Bauhaus, Impressionism), questions must focus strictly on art movement concepts, historical context, key figures, philosophy, stylistic innovations, and cultural legacy.
+     * If the topic is a philosophical debate (e.g. free will, morality), questions must focus strictly on philosophical reasoning, Socratic probing, and arguments.
+     * If the topic is a new gadget/phone, focus strictly on gadget features, comparison, and practical advice.
+     * Never mash together requirements from two different benchmarks!
 
-4. MULTI-TURN CONVERSATIONAL PROGRESSION:
-   - In subsequent rounds, keep the tone casual and oral, pursuing deeper details (e.g., specific ticket tiers/perks, transportation/venue logistics, or anti-drift traps).
-   - If testing anti-drift, naturally insert a short aborted thought: "哎，这让我想到个别的事——算了不想了。回到刚才那个，你觉得..."
+4. MULTI-TURN CONVERSATIONAL PROGRESSION WITHIN THE CURRENT TOPIC (基于本主题自身脉络的递进):
+   - In subsequent rounds, keep the tone natural, succinct (30-65 chars), and casual.
+   - The progression MUST strictly follow the internal logic of the CURRENT topic:
+     * Round 1: Naturally open the conversation based on the topic's initial scenario.
+     * Round 2: Probe specific representative examples, details, mechanisms, or core works within this topic.
+     * Round 3: Probe underlying principles, historical/technical controversies, counter-arguments, or trade-offs.
+     * Round 4..N: Probe practical contemporary applications, edge cases, legacy, or deeper reflection.
+   - Maintain the single, coherent storyline of this specific topic without inventing unrelated digressions!
 
 OUTPUT FORMAT:
 Directly output in pure Chinese without conversational pleasantries or preamble:
@@ -100,13 +108,13 @@ class QuestionGenerator:
         elif current_round == 1:
             action_prompt = (
                 f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
-                f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头提问，自然融入指定测试技能。"
+                f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头提问，紧扣本主题核心，绝不杂糅其他话题的要求。"
             )
         else:
             action_prompt = (
                 f"当前进入第 {current_round}/{total_rounds} 轮递进提问（总对话预期时长/场景: {duration_desc}）。\n"
                 f"前序轮次的问题脉络：\n{history_str}\n\n"
-                f"请紧扣主题并顺承前序问题，提出一个更深入但依然简短地道（30-65字口语）的第 {current_round} 轮口头发问。"
+                f"请紧扣主题并顺承前序问题，提出一个更深入但依然简短地道（30-65字口语）的第 {current_round} 轮口头发问，保持当前主题的纯粹性，不节外生枝。"
             )
 
         user_content = (
@@ -118,10 +126,11 @@ class QuestionGenerator:
             f"=== 核心原则与严厉禁止 ===\n"
             f"1. 严格口语字数限制：【提问内容】必须在 30 ~ 65 字以内，口语极其自然流畅，绝对不要长篇大论，绝不能念出来超过10秒！\n"
             f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
-            f"3. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
-            f"4. 严禁数码产品胡乱强行指定未提及的型号：当测评主题为“一款新手机刚发布”等通用描述且未指定具体品牌型号时，严禁随意胡乱指定一个具体型号（如随意猜 iPhone 17 Pro）！应采用自然口语发问（如“哎，最近刚发布的最新旗舰手机都有哪些核心升级和新功能啊？和我现在用的旧机比值得换吗，一般啥时候发货？”），由被测 AI 在回答中展现其对最新发布产品的事实掌握！仅当用户主题明确指定了具体品牌型号时才具名。\n"
-            f"5. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
-            f"6. 格式：直接以【提问内容】开头。\n"
+            f"3. 绝对严禁跨话题杂糅要求（保持话题100%独立纯粹）：提问必须严格、纯粹地围绕当前【测评主题】展开！绝对严禁擅自引入其他话题的测试套路（例如：严禁擅自插入防跑题中断话术“这让我想起别的事...算了不想了/回到刚才”、严禁擅自插入门票/价格评估、严禁擅自插入无关联想），除非当前测评主题本身明确要求了该项测试！\n"
+            f"4. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
+            f"5. 严禁数码产品胡乱强行指定未提及的型号：当测评主题为“一款新手机刚发布”等通用描述且未指定具体品牌型号时，严禁随意胡乱指定一个具体型号（如随意猜 iPhone 17 Pro）！应采用自然口语发问（如“哎，最近刚发布的最新旗舰手机都有哪些核心升级和新功能啊？和我现在用的旧机比值得换吗，一般啥时候发货？”），由被测 AI 在回答中展现其对最新发布产品的事实掌握！仅当用户主题明确指定了具体品牌型号时才具名。\n"
+            f"6. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
+            f"7. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content)

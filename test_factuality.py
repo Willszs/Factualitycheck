@@ -93,9 +93,8 @@ class TestFactualityComponents(unittest.TestCase):
         prompt = get_system_prompt()
         self.assertIn("REAL HUMAN SPEAKING ALOUD", prompt)
         self.assertIn("ZERO HALLUCINATED PREMISES", prompt)
-        self.assertIn("事实准确性", prompt)
-        self.assertIn("结构化表达", prompt)
-        self.assertIn("价值评估", prompt)
+        self.assertIn("STRICT TOPIC INDEPENDENCE", prompt)
+        self.assertIn("各话题严格独立", prompt)
 
         gen = QuestionGenerator(self.sample_config)
         dirty_output = "好的，这是为您设计的第 1 轮提问：\n\n【提问内容】: 测试问题\n【测试关注点】: 测试关注点"

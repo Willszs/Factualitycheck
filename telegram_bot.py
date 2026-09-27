@@ -78,6 +78,7 @@ class TelegramBotService:
         self.history_questions = []
         self.current_round = 1
         self.total_rounds = 3
+        self.duration_desc = ""
 
         prompt_msg = (
             f"🎯 <b>收到新测评主题：</b>\n"
