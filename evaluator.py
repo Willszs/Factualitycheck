@@ -113,7 +113,7 @@ For conversational dynamics I prefer neither model. Both Model A and Model B dis
 
 For utility I prefer neither model. Both models suffered from critical factual hallucinations regarding the music festival lineup: in Turn 1, Model A falsely claimed that Jay Chou and Eason Chan were headlining the event, whereas in reality neither artist was in the official lineup; meanwhile in Turn 1 and Turn 2, Model B gave an equally inaccurate guest list by transferring artists from last year's festival and inventing non-existent performance dates. Because both models failed baseline factual correctness on core entities, neither model can be recommended for utility.
 
-STRICT FORMAT RULES:
+STRICT FORMAT & LENGTH RULES:
 - Output MUST be 100% in English.
 - Always refer to dialogue turns strictly as "Turn 1", "Turn 2", "Turn 3", etc. NEVER use "Round 1", "Round 2".
 - EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
@@ -123,6 +123,12 @@ STRICT FORMAT RULES:
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
 - NO bullet points (*, -) or numbered lists. Write flowing prose within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
+- STRICT WORD LIMIT CONSTRAINTS (字数硬性限制 - 两个板块各自 300 词内，总共 600 词内):
+  * Paragraph 1 (Conversational Dynamics): MUST be strictly under 300 words.
+  * Paragraph 2 (Utility): MUST be strictly under 300 words.
+  * Total combined word count MUST be strictly under 600 words.
+  * High information density: be concise, sharp, and direct. Cut all verbose filler and repetitive fluff.
+  * Key details MUST be preserved: exact Turn numbers, exact error quotes/behaviors, and exact verified Ground Truth facts/corrections.
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -188,8 +194,8 @@ class FactualityEvaluator:
 
         return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
 
-    @staticmethod
-    def clean_evaluation_report(text: str) -> str:
+    @classmethod
+    def clean_evaluation_report(cls, text: str) -> str:
         """
         Sanitizes evaluation text into exactly two dimensions separated by a single blank line:
         1. For conversational dynamics I prefer...
@@ -228,13 +234,29 @@ class FactualityEvaluator:
         p1 = re.sub(r"[\r\n]+", " ", p1)
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
+        # Truncate each paragraph to strictly under 300 words if necessary
+        p1 = cls._truncate_to_word_limit(p1, max_words=300)
+
         # Normalize internal spacing of paragraph 2
         if p2:
             p2 = re.sub(r"###.*$", "", p2).strip()
             p2 = re.sub(r"[\r\n]+", " ", p2)
             p2 = re.sub(r"\s{2,}", " ", p2).strip()
+            p2 = cls._truncate_to_word_limit(p2, max_words=300)
             return f"{p1}\n\n{p2}"
         return p1
+
+    @staticmethod
+    def _truncate_to_word_limit(paragraph: str, max_words: int = 300) -> str:
+        words = paragraph.split()
+        if len(words) <= max_words:
+            return paragraph
+        sub_words = words[:max_words]
+        sub_text = " ".join(sub_words)
+        match = re.search(r"^(.*[\.\!\?])\s+[^\.\!\?]*$", sub_text)
+        if match:
+            return match.group(1).strip()
+        return sub_text.strip()
 
     @classmethod
     def clean_single_paragraph(cls, text: str) -> str:
@@ -255,6 +277,7 @@ class FactualityEvaluator:
                 config=types.GenerateContentConfig(
                     system_instruction=prompt,
                     temperature=0.1,
+                    max_output_tokens=2048,
                 ),
             )
             if response and response.text:
@@ -283,7 +306,8 @@ class FactualityEvaluator:
                 }
             ],
             "generationConfig": {
-                "temperature": 0.1
+                "temperature": 0.1,
+                "maxOutputTokens": 2048
             }
         }
 

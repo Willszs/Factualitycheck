@@ -61,6 +61,22 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertNotIn("###", cleaned)
         self.assertIn("Ground Truth: simple majority.", paragraphs[1])
 
+    def test_clean_evaluation_report_word_limit(self):
+        long_paragraph = "word " * 400 + "."
+        sample_raw = (
+            f"For conversational dynamics I prefer Model A. {long_paragraph}\n\n"
+            f"For utility I prefer Model B. {long_paragraph}"
+        )
+        cleaned = FactualityEvaluator.clean_evaluation_report(sample_raw)
+        paragraphs = cleaned.split("\n\n")
+        self.assertEqual(len(paragraphs), 2)
+        # Each paragraph must be <= 300 words
+        p1_words = len(paragraphs[0].split())
+        p2_words = len(paragraphs[1].split())
+        self.assertLessEqual(p1_words, 300)
+        self.assertLessEqual(p2_words, 300)
+        self.assertLessEqual(p1_words + p2_words, 600)
+
     @patch("requests.post")
     def test_telegram_notifier_success(self, mock_post):
         mock_resp = MagicMock()
