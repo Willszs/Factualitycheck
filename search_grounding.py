@@ -180,3 +180,83 @@ class SearchGrounding:
         grounding_block = "\n".join(lines)
         logger.info(f"Built search grounding block with {len(collected)} items.")
         return grounding_block
+
+    @classmethod
+    def search_transcripts(cls, transcript_a: str, transcript_b: str) -> str:
+        """
+        Extracts key entities, product names, and discussion points from transcripts,
+        and retrieves real-time search results to provide verified ground truth for the evaluator.
+        """
+        combined = f"{transcript_a}\n{transcript_b}"
+        if not cls.should_search(combined):
+            return ""
+
+        now_year = datetime.datetime.now().strftime("%Y")
+        queries = []
+
+        # 1. Look for specific named product models (e.g. iPhone Duo, Mate XT, X500, 折叠屏, 欧冠, etc.)
+        for pattern in [r"(iPhone\s+[A-Za-z0-9]+)", r"(Mate\s+[A-Za-z0-9]+)", r"(vivo\s+[A-Za-z0-9]+)", r"(小米\s+[A-Za-z0-9]+)", r"([A-Za-z0-9]+\s+折叠[屏机]?)", r"(折叠[屏机])"]:
+            matches = re.findall(pattern, combined, flags=re.IGNORECASE)
+            for m in matches:
+                clean_m = m.strip()
+                if len(clean_m) >= 3 and clean_m not in queries:
+                    queries.append(f"{clean_m} {now_year}")
+
+        # 2. Extract user's opening question from Turn 1
+        lines = [line.strip() for line in transcript_a.splitlines() if line.strip()]
+        if lines:
+            first_user_line = lines[0]
+            if len(first_user_line) > 5:
+                clean_q = re.sub(r"[，。！？、“”《》\(\)（）\n\r]+", " ", first_user_line).strip()
+                words = clean_q.split()
+                if words:
+                    core_q = " ".join(words[:4])
+                    if core_q not in queries:
+                        queries.append(f"{core_q} {now_year}")
+
+        # Deduplicate and limit to 2 queries
+        unique_queries = []
+        for q in queries:
+            if q not in unique_queries:
+                unique_queries.append(q)
+            if len(unique_queries) >= 2:
+                break
+
+        if not unique_queries:
+            return ""
+
+        logger.info(f"Evaluator search queries extracted: {unique_queries}")
+        collected: List[Dict[str, str]] = []
+        seen_titles = set()
+
+        for q in unique_queries:
+            # Google News RSS
+            for r in cls.query_google_news_rss(q, max_items=4):
+                clean_title = r["title"].split(" - ")[0].strip()
+                if clean_title and clean_title not in seen_titles:
+                    seen_titles.add(clean_title)
+                    collected.append(r)
+            # Bing News RSS
+            for r in cls.query_bing_news_rss(q, max_items=3):
+                clean_title = r["title"].split(" - ")[0].strip()
+                if clean_title and clean_title not in seen_titles:
+                    seen_titles.add(clean_title)
+                    collected.append(r)
+            if len(collected) >= 6:
+                break
+
+        if not collected:
+            return ""
+
+        res_lines = ["=== 实时全网检索事实依据（REAL-TIME VERIFIED GROUND TRUTH）==="]
+        for it in collected[:6]:
+            date_prefix = f"[{it['date']}] " if it.get("date") else ""
+            res_lines.append(f"- {date_prefix}{it['title']}")
+
+        res_lines.append(
+            "\n【评估员事实核查绝对法则（CRITICAL VERIFICATION RULES）】：\n"
+            "1. 严禁依据预训练模型知识截断时间判定现实中已发布的真实产品或事件为“虚构”！上方检索事实来自当前真实世界。\n"
+            "2. 如果对话中的模型提到了真实发布的实体（例如：苹果发布的折叠屏手机 iPhone Duo、华为三折叠屏、新款芯片、真实比赛战报或真实展演），且与上述全网检索事实吻合，该信息属于【客观真实】！绝对严禁误判为“凭空捏造/未发布/不存在的设备”！\n"
+            "3. 只有当模型给出的信息与上述全网真实检索事实存在实质性冲突（例如编造了不存在的发布会、完全错误的参数、或虚假的虚构事实）时，方可计为事实错误。\n"
+        )
+        return "\n".join(res_lines)

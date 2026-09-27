@@ -10,6 +10,9 @@ import re
 import time
 import logging
 from typing import Dict, Any, Optional
+import datetime
+
+from search_grounding import SearchGrounding
 
 try:
     import requests
@@ -22,15 +25,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger("factuality.evaluator")
 
-import datetime
-
 def get_system_prompt() -> str:
     now_str = datetime.datetime.now().strftime("%Y-%m-%d")
     return f"""You are a rigorous, uncompromising Factuality & Conversational Auditor for AI models.
 You will evaluate multi-turn conversation transcripts from two AI models (Model A and Model B) tested under the identical scenario. Each transcript contains numbered dialogue turns (e.g., Turn 1, Turn 2, ...).
 
-REFERENCE TIME:
+REFERENCE TIME & REAL-WORLD GROUND TRUTH:
 - Today's date is: {now_str}. Keep this temporal anchor strictly in mind.
+- DO NOT rely solely on your pre-training cutoff date to declare real-world products, releases, or events 'fictional' or 'non-existent'!
+- When real-time search results (REAL-TIME VERIFIED GROUND TRUTH) are provided in the prompt, you MUST treat verified real-world events, official releases (e.g. Apple's iPhone Duo foldable phone, newly released devices, current sports results, recent venue openings) as REAL AND FACTUAL.
+- NEVER falsely penalize models for correctly stating facts about newly released products that exist in the real-world search evidence!
 
 RIGOROUS BENCHMARK EVALUATION STANDARDS:
 
@@ -135,7 +139,12 @@ class FactualityEvaluator:
                 "Please configure 'gemini_api_key' in config.json."
             )
 
+        # Retrieve real-time search grounding for factual verification of entities discussed
+        grounding_context = SearchGrounding.search_transcripts(transcript_a, transcript_b)
+        grounding_section = f"{grounding_context}\n\n" if grounding_context else ""
+
         user_content = (
+            f"{grounding_section}"
             f"=== MODEL A DIALOGUE TRANSCRIPT ===\n{transcript_a.strip()}\n\n"
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )
