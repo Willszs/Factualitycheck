@@ -47,6 +47,7 @@ I. CONVERSATIONAL DYNAMICS (6 Core Dimensions):
    - Artificial search-simulation intros and mumbling (e.g., "收到，我去查一下...", "好，我来帮你查一下。嗯...苹果 折叠机... 功能... 价格").
    - Severe dead-air latency, unnatural pauses, or system hanging that forces the user to prompt or intervene (e.g. "人呢人呢", "喂", "在吗", "还在吗"). A model scrambling to say "在在!我在" does NOT erase the failure — causing dead air that provokes user intervention is a catastrophic turn-taking and timing failure!
    - Unprompted language switching & instruction violation: responding in English when the user speaks Chinese, or continuing to output English intros ("Checking European pricing and availability.") even after the user explicitly commands "中文回答我".
+   - NEVER PRAISE A MODEL FOR "RECOVERING" FROM ITS OWN FAILURE: If a model causes dead-air pauses that force the user to ask "人呢人呢", or speaks English when Chinese was requested, you MUST NOT praise the model for "recovering smoothly" or "handling the interruption". The conversational breakdown has already occurred! A model that speaks English twice despite user demands for Chinese, or hangs until the user prompts "人呢人呢", CAN NEVER be preferred for conversational dynamics over a model that spoke fluent, uninterrupted Chinese.
 2. Contextual Coherence: Whether the system tracks and builds on prior turns. In live multi-turn dialogue, small coherence failures compound across turns.
 3. Adaptivity: How the system responds to shifts in user tone, topic, speaking rate, or intent. Evaluates anti-drift capability (e.g. handling aborted thoughts like "算了不说了 / 这让我想起别的事...算了回到刚才" without getting derailed or inappropriately chasing tangents).
 4. Engagement & Flow: The subjective sense of natural conversational rhythm — whether the interaction feels fluid, engaging, and organic like a real human dialogue, or stilted, robotic, and pedantic.
@@ -158,11 +159,11 @@ class FactualityEvaluator:
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )
 
-        # Verified active candidate models in priority order (prioritize 3.7-flash for rigorous fact checking)
-        candidate_models = ["gemini-3.7-flash"]
+        # Verified active candidate models in priority order (prioritize full flash models for rigorous reasoning)
+        candidate_models = ["gemini-3.8-flash", "gemini-3.7-flash"]
         if self.primary_model not in candidate_models:
             candidate_models.append(self.primary_model)
-        for fallback in ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash"]:
+        for fallback in ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]:
             if fallback not in candidate_models:
                 candidate_models.append(fallback)
 
