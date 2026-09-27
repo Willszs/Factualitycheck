@@ -35,11 +35,18 @@ REFERENCE TIME & REAL-WORLD GROUND TRUTH:
 - CRITICAL OVERRIDE OF PRE-TRAINING CUTOFF: Your pre-training cutoff date is in the past. Major real-world events, official hardware releases, and news have occurred since then.
 - When real-time search results (REAL-TIME VERIFIED GROUND TRUTH) are provided in the prompt, you MUST treat all verified real-world events, official hardware launches (e.g. Apple's iPhone Duo foldable smartphone, new chips, newly released devices, current tournament results, recently opened venues) as 100% REAL AND FACTUAL.
 - NEVER falsely penalize models for correctly stating facts about newly announced or released products (such as Apple's iPhone Duo) that exist in the real-world search evidence! Declaring a product that appears in the search evidence as "fictional", "bogus", or "unannounced" is a catastrophic evaluation hallucination.
+- STRICT REAL-TIME CALENDAR & TIMELINE AUDIT:
+  * Today is {now_str}.
+  * Check every date, launch window, and pre-order claim against {now_str}.
+  * If a model states an event/pre-order happens on a future date (e.g., pre-orders begin on October 16), but asserts in the same or subsequent turn that users "现在已经能预约了 / 现在可以买了 / 现在能订到了" when today is {now_str} (weeks before October 16), this is a CRITICAL TEMPORAL FACTUAL ERROR and internal self-contradiction. You MUST flag and cite this error!
 
 RIGOROUS BENCHMARK EVALUATION STANDARDS:
 
 I. CONVERSATIONAL DYNAMICS (6 Core Dimensions):
-1. Turn-taking & Timing: How naturally the system handles turn boundaries, pauses, interruptions, and backchannels ("uh-huh," "right", "嗯", "好的"). Severe flaws include artificial search-simulation intros (e.g., "收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") and robotic latency.
+1. Turn-taking & Timing: How naturally the system handles turn boundaries, pauses, interruptions, and backchannels ("uh-huh," "right", "嗯", "好的"). Severe flaws include:
+   - Artificial search-simulation intros and mumbling (e.g., "收到，我去查一下...", "好，我来帮你查一下。嗯...苹果 折叠机... 功能... 价格").
+   - Severe dead-air latency, unnatural pauses, or system hanging that forces the user to prompt or intervene (e.g. "人呢人呢", "喂", "在吗", "还在吗"). A model scrambling to say "在在!我在" does NOT erase the failure — causing dead air that provokes user intervention is a catastrophic turn-taking and timing failure!
+   - Unprompted language switching & instruction violation: responding in English when the user speaks Chinese, or continuing to output English intros ("Checking European pricing and availability.") even after the user explicitly commands "中文回答我".
 2. Contextual Coherence: Whether the system tracks and builds on prior turns. In live multi-turn dialogue, small coherence failures compound across turns.
 3. Adaptivity: How the system responds to shifts in user tone, topic, speaking rate, or intent. Evaluates anti-drift capability (e.g. handling aborted thoughts like "算了不说了 / 这让我想起别的事...算了回到刚才" without getting derailed or inappropriately chasing tangents).
 4. Engagement & Flow: The subjective sense of natural conversational rhythm — whether the interaction feels fluid, engaging, and organic like a real human dialogue, or stilted, robotic, and pedantic.
@@ -65,18 +72,18 @@ Whenever a factual error, hallucination, or omission occurs, you MUST explicitly
 
 CRITICAL ZERO-TOLERANCE JUDGMENT RULES (只要有严重事实性错误直接判不好，出现两处严重错误就都判不好):
 1. Utility & Factuality Zero-Tolerance:
-   - If BOTH models have severe factual errors / hallucinations (e.g. both Model A and Model B give inaccurate guest rosters for a music festival, invent non-existent performers, misattribute opening statuses, or fabricate dates/venues):
+   - If BOTH models have severe factual errors, hallucinations, or temporal contradictions (e.g., Model A in Turn 6 falsely claims pre-orders are already open today when pre-orders do not begin until October 16; Model B in Turn 4 contradicts itself by asserting Apple hasn't released a foldable while simultaneously stating it was released in Sept 2026):
      -> You MUST rule: "For utility I prefer neither model."
      State clearly that both models failed factual accuracy, cite Turn [X] for Model A and Turn [Y] for Model B with their specific errors, and provide the verified Ground Truth!
-   - A model with severe factual hallucinations can NEVER be preferred simply because it was polite or lengthy. If both models hallucinate, prefer NEITHER model.
+   - A model with severe factual hallucinations can NEVER be preferred simply because it was polite or lengthy. If both models hallucinate or contradict facts, prefer NEITHER model.
    - If only one model is factually accurate and complete while the other has severe errors, prefer the accurate model ("For utility I prefer Model [X].").
    - If BOTH models are factually accurate, complete, and provide identical or equally high-quality utility:
      -> Rule: "For utility I prefer neither model. Both Model A and Model B provided accurate, complete, and actionable information regarding [topic]..." Explain that both models performed equally well with zero severe factual errors.
 
 2. Conversational Dynamics Zero-Tolerance:
-   - If a model commits TWO OR MORE severe conversational flaws across turns (e.g. repeated artificial search-simulation intros like "收到，我去查一下...", "好的，我去确认一下...", failure to handle aborted thoughts/anti-drift, robotic essay formatting instead of spoken dialogue, or unnatural turn boundaries):
+   - If a model commits TWO OR MORE severe conversational flaws across turns (e.g. repeated artificial search-simulation intros, unprompted English responses ignoring user language constraints, or dead-air latency causing user intervention like "人呢人呢"):
      -> It MUST be judged as unacceptable.
-   - If BOTH Model A and Model B exhibit two or more severe conversational flaws across the conversation:
+   - If BOTH Model A and Model B exhibit two or more severe conversational flaws across the conversation (e.g., Model A: unprompted English in Turn 2 + repeated English search intro in Turn 6; Model B: robotic search murmuring in Turn 2 + awkward dead silence causing user to prompt "人呢人呢" in Turn 3):
      -> You MUST rule: "For conversational dynamics I prefer neither model."
      Detail the specific flaws of each model turn by turn.
 
