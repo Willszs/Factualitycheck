@@ -10,6 +10,8 @@ import datetime
 import logging
 from typing import Dict, Any, List, Optional
 
+from search_grounding import SearchGrounding
+
 try:
     import requests
 except ImportError:
@@ -98,6 +100,10 @@ class QuestionGenerator:
         history_questions = history_questions or []
         history_str = "\n".join([f"- 第 {i+1} 轮曾用问题: {q}" for i, q in enumerate(history_questions)])
 
+        # Real-time web search grounding for live entities (phones, electronics, news, sports, teams, events)
+        grounding_context = SearchGrounding.search(topic)
+        grounding_section = f"\n\n{grounding_context}" if grounding_context else ""
+
         if is_alternative:
             action_prompt = (
                 f"当前用户正在进行第 {current_round}/{total_rounds} 轮口语提问。\n"
@@ -117,9 +123,16 @@ class QuestionGenerator:
                 f"请紧扣主题并顺承前序问题，提出一个更深入但依然简短地道（30-65字口语）的第 {current_round} 轮口头发问，保持当前主题的纯粹性，不节外生枝。"
             )
 
+        if grounding_context:
+            action_prompt += (
+                "\n\n【必须真实具名要求（联网搜索事实约束）】：系统已自动全网检索到了最新的真实世界实体信息。"
+                "请务必直接从检索结果中提取一个当前的最新具体名字（如具体手机品牌型号、具体比赛对阵双方球队、具体数码产品、具体新闻事件），"
+                "并自然融入真人口语提问中，严禁使用泛指代称，必须给出确切具体的真实名字！"
+            )
+
         user_content = (
             f"=== 当前现实真实时间 ===\n{now_str}\n\n"
-            f"=== 测评主题 ===\n{topic}\n\n"
+            f"=== 测评主题 ===\n{topic}{grounding_section}\n\n"
             f"=== 对话规格与场景 ===\n"
             f"真人嘴巴说话 / 真实语音通话（总限时约 {duration_desc}）。用户需要直接张嘴把问题读出来！\n\n"
             f"=== 任务指令 ===\n{action_prompt}\n\n"
@@ -128,7 +141,7 @@ class QuestionGenerator:
             f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
             f"3. 绝对严禁跨话题杂糅要求（保持话题100%独立纯粹）：提问必须严格、纯粹地围绕当前【测评主题】展开！绝对严禁擅自引入其他话题的测试套路（例如：严禁擅自插入防跑题中断话术“这让我想起别的事...算了不想了/回到刚才”、严禁擅自插入门票/价格评估、严禁擅自插入无关联想），除非当前测评主题本身明确要求了该项测试！\n"
             f"4. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
-            f"5. 严禁数码产品胡乱强行指定未提及的型号：当测评主题为“一款新手机刚发布”等通用描述且未指定具体品牌型号时，严禁随意胡乱指定一个具体型号（如随意猜 iPhone 17 Pro）！应采用自然口语发问（如“哎，最近刚发布的最新旗舰手机都有哪些核心升级和新功能啊？和我现在用的旧机比值得换吗，一般啥时候发货？”），由被测 AI 在回答中展现其对最新发布产品的事实掌握！仅当用户主题明确指定了具体品牌型号时才具名。\n"
+            f"5. 联网真实具名原则：对于手机、电子产品、新闻、比赛、球队等实时资讯，系统已通过全网检索提供了当前现实中的最新真实实体。必须直接使用检索到的真实具体名字（如具体手机型号、具体球队对决），绝不凭空瞎猜未发布的虚构型号！\n"
             f"6. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
             f"7. 格式：直接以【提问内容】开头。\n"
         )

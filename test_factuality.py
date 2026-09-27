@@ -223,6 +223,22 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertTrue(hasattr(app, "FactualityApp"))
         self.assertTrue(hasattr(app, "main"))
 
+    def test_search_grounding_trigger_and_queries(self):
+        from search_grounding import SearchGrounding
+        # Test trigger detection
+        self.assertTrue(SearchGrounding.should_search("一款新手机刚刚发布，询问新功能"))
+        self.assertTrue(SearchGrounding.should_search("欧冠最新的比赛对阵和比分"))
+        self.assertTrue(SearchGrounding.should_search("今天最新的科技新闻"))
+        self.assertFalse(SearchGrounding.should_search("自由意志与决定论的哲学探讨"))
+
+        # Test query generation
+        queries_phone = SearchGrounding.extract_search_queries("一款新手机刚刚发布，问新功能")
+        self.assertTrue(any("手机" in q for q in queries_phone))
+
+        queries_sports = SearchGrounding.extract_search_queries("欧冠最新比赛战报")
+        self.assertTrue(any("欧冠" in q for q in queries_sports))
+
 
 if __name__ == "__main__":
     unittest.main()
+
