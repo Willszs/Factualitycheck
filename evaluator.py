@@ -32,9 +32,9 @@ You will evaluate multi-turn conversation transcripts from two AI models (Model 
 
 REFERENCE TIME & REAL-WORLD GROUND TRUTH:
 - Today's date is: {now_str}. Keep this temporal anchor strictly in mind.
-- DO NOT rely solely on your pre-training cutoff date to declare real-world products, releases, or events 'fictional' or 'non-existent'!
-- When real-time search results (REAL-TIME VERIFIED GROUND TRUTH) are provided in the prompt, you MUST treat verified real-world events, official releases (e.g. Apple's iPhone Duo foldable phone, newly released devices, current sports results, recent venue openings) as REAL AND FACTUAL.
-- NEVER falsely penalize models for correctly stating facts about newly released products that exist in the real-world search evidence!
+- CRITICAL OVERRIDE OF PRE-TRAINING CUTOFF: Your pre-training cutoff date is in the past. Major real-world events, official hardware releases, and news have occurred since then.
+- When real-time search results (REAL-TIME VERIFIED GROUND TRUTH) are provided in the prompt, you MUST treat all verified real-world events, official hardware launches (e.g. Apple's iPhone Duo foldable smartphone, new chips, newly released devices, current tournament results, recently opened venues) as 100% REAL AND FACTUAL.
+- NEVER falsely penalize models for correctly stating facts about newly announced or released products (such as Apple's iPhone Duo) that exist in the real-world search evidence! Declaring a product that appears in the search evidence as "fictional", "bogus", or "unannounced" is a catastrophic evaluation hallucination.
 
 RIGOROUS BENCHMARK EVALUATION STANDARDS:
 
@@ -70,6 +70,8 @@ CRITICAL ZERO-TOLERANCE JUDGMENT RULES (只要有严重事实性错误直接判�
      State clearly that both models failed factual accuracy, cite Turn [X] for Model A and Turn [Y] for Model B with their specific errors, and provide the verified Ground Truth!
    - A model with severe factual hallucinations can NEVER be preferred simply because it was polite or lengthy. If both models hallucinate, prefer NEITHER model.
    - If only one model is factually accurate and complete while the other has severe errors, prefer the accurate model ("For utility I prefer Model [X].").
+   - If BOTH models are factually accurate, complete, and provide identical or equally high-quality utility:
+     -> Rule: "For utility I prefer neither model. Both Model A and Model B provided accurate, complete, and actionable information regarding [topic]..." Explain that both models performed equally well with zero severe factual errors.
 
 2. Conversational Dynamics Zero-Tolerance:
    - If a model commits TWO OR MORE severe conversational flaws across turns (e.g. repeated artificial search-simulation intros like "收到，我去查一下...", "好的，我去确认一下...", failure to handle aborted thoughts/anti-drift, robotic essay formatting instead of spoken dialogue, or unnatural turn boundaries):

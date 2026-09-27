@@ -248,15 +248,19 @@ class SearchGrounding:
         if not collected:
             return ""
 
-        res_lines = ["=== 实时全网检索事实依据（REAL-TIME VERIFIED GROUND TRUTH）==="]
+        res_lines = [
+            "=== REAL-TIME VERIFIED GROUND TRUTH (REAL-WORLD SEARCH EVIDENCE) ===",
+            "Live web search evidence retrieved for entities discussed in this dialogue:"
+        ]
         for it in collected[:6]:
             date_prefix = f"[{it['date']}] " if it.get("date") else ""
             res_lines.append(f"- {date_prefix}{it['title']}")
 
         res_lines.append(
-            "\n【评估员事实核查绝对法则（CRITICAL VERIFICATION RULES）】：\n"
-            "1. 严禁依据预训练模型知识截断时间判定现实中已发布的真实产品或事件为“虚构”！上方检索事实来自当前真实世界。\n"
-            "2. 如果对话中的模型提到了真实发布的实体（例如：苹果发布的折叠屏手机 iPhone Duo、华为三折叠屏、新款芯片、真实比赛战报或真实展演），且与上述全网检索事实吻合，该信息属于【客观真实】！绝对严禁误判为“凭空捏造/未发布/不存在的设备”！\n"
-            "3. 只有当模型给出的信息与上述全网真实检索事实存在实质性冲突（例如编造了不存在的发布会、完全错误的参数、或虚假的虚构事实）时，方可计为事实错误。\n"
+            "\n[CRITICAL AUDITOR GROUNDING DIRECTIVE / 评估员事实核查绝对法则]:\n"
+            "1. The entities, products, and events listed above (e.g. Apple's iPhone Duo foldable smartphone, new chips, tournament results, venue openings) are 100% REAL AND VERIFIED in the current real world.\n"
+            "2. DO NOT rely on pre-training knowledge cutoff to claim these products are fictional or unannounced. It is a severe evaluation failure to penalize models for stating these verified real-world facts.\n"
+            "3. If a model mentions these verified entities, launch dates, or specifications consistent with real-world reports, its statements are FACTUALLY ACCURATE.\n"
+            "4. Only mark a statement as a factual error if it directly contradicts verified real-world facts or fabricates non-existent details."
         )
         return "\n".join(res_lines)
