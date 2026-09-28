@@ -66,6 +66,12 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * Round 4..N: Probe practical contemporary applications, edge cases, legacy, or deeper reflection.
    - Maintain the single, coherent storyline of this specific topic without inventing unrelated digressions!
 
+5. STRICT MULTI-STAGE PACING & ZERO PREMATURE SPOILERS (严格分步推进，绝对严禁首轮剧透后续担忧/反转/诉求):
+   - When a topic contains a phased arc (e.g. "先聊周末休闲计划，再引出内心担忧/心事", "先吐槽搬家离开朋友的不舍感受，2-3轮后转向让AI制定搬家时间表"):
+     * ROUND 1 (破题开场): MUST 100% focus solely on the initial hook (e.g. asking about weekend movie plans/recommendations, or sharing initial feelings about moving).
+     * ABSOLUTE PROHIBITION ON SPOILING LATER PHASES IN ROUND 1: NEVER mix the subsequent worry, deeper anxiety, or transition tasks ("制定时间表") into Round 1! Real humans do not pour out their deepest inner anxiety or transition to practical checklists in the very first sentence.
+     * SUBSEQUENT ROUNDS: Smoothly and naturally transition into the later phase at the designated turn (e.g. introducing the anxiety in Round 2, or transitioning to "好了别丧了，帮我做时间表" at Round 3).
+
 OUTPUT FORMAT:
 Directly output in pure Chinese without conversational pleasantries or preamble:
 【提问内容】: (30-65字的纯口语提问，直接张嘴就能念出来，5-10秒念完)
@@ -81,7 +87,9 @@ class QuestionGenerator:
             or os.environ.get("GEMINI_API_KEY", "")
         ).strip()
         self.primary_model = config.get("gemini_model", "gemini-3.6-flash").strip()
-        self.candidate_models = ["gemini-3.7-flash", self.primary_model, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]
+        self.candidate_models = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]
+        if self.primary_model not in self.candidate_models:
+            self.candidate_models.insert(0, self.primary_model)
 
     def generate_question(
         self,
@@ -114,13 +122,18 @@ class QuestionGenerator:
         elif current_round == 1:
             action_prompt = (
                 f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
-                f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头提问，紧扣本主题核心，绝不杂糅其他话题的要求。"
+                f"【极其重要的分步节奏法则】：如果测评主题中包含阶段推进（例如'先...后...'、'2-3轮后转向...'、'先聊周末计划再引出担心'），"
+                f"第 1 轮必须【严格、单纯地停留在第一阶段的起头】（例如纯粹聊周末计划/电影推荐，或纯粹吐槽离开朋友的不舍），"
+                f"【绝对严禁在第 1 轮剧透或融入后续阶段的心事、深层担忧或时间表任务】！\n"
+                f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头发问。"
             )
         else:
             action_prompt = (
                 f"当前进入第 {current_round}/{total_rounds} 轮递进提问（总对话预期时长/场景: {duration_desc}）。\n"
                 f"前序轮次的问题脉络：\n{history_str}\n\n"
-                f"请紧扣主题并顺承前序问题，提出一个更深入但依然简短地道（30-65字口语）的第 {current_round} 轮口头发问，保持当前主题的纯粹性，不节外生枝。"
+                f"【递进或转折法则】：请紧扣测评主题并在前序对话基础上深入推进。"
+                f"如果测评主题设定在此时进入转折（例如'第2轮引出担忧/心事'，或'2-3轮后转向制定时间表'），请在第 {current_round} 轮极其自然地顺承并引出该转折诉求！"
+                f"提出一个简短地道（30-65字口语）的第 {current_round} 轮口头发问，绝不脱离主题，绝不节外生枝。"
             )
 
         if grounding_context:
@@ -146,7 +159,7 @@ class QuestionGenerator:
             f"7. 格式：直接以【提问内容】开头。\n"
         )
 
-        raw_result = self._call_gemini(user_content)
+        raw_result = self._call_gemini(user_content, topic_context=topic)
         cleaned_result = self._clean_output(raw_result)
         logger.info(f"Generated question (R{current_round}/{total_rounds}):\n{cleaned_result}")
         return cleaned_result
@@ -184,60 +197,63 @@ class QuestionGenerator:
 
         return text.strip()
 
-    def _call_gemini(self, user_content: str) -> str:
+    def _call_gemini(self, user_content: str, topic_context: str = "") -> str:
         system_prompt = get_system_prompt()
         for model in self.candidate_models:
-            # 1. Try google-genai SDK
-            try:
-                from google import genai
-                from google.genai import types
+            for attempt in range(1, 3):
+                # 1. Try google-genai SDK
+                try:
+                    from google import genai
+                    from google.genai import types
 
-                client = genai.Client(api_key=self.api_key)
-                resp = client.models.generate_content(
-                    model=model,
-                    contents=user_content,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=0.7,
-                    ),
-                )
-                if resp and resp.text:
-                    return resp.text.strip()
-            except Exception as e:
-                err_str = str(e)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    logger.warning(f"Model {model} hit 429 quota limit, switching to next model immediately...")
-                    continue
-                logger.warning(f"SDK call to {model} failed ({e}), trying REST...")
+                    client = genai.Client(api_key=self.api_key)
+                    resp = client.models.generate_content(
+                        model=model,
+                        contents=user_content,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            temperature=0.7,
+                        ),
+                    )
+                    if resp and resp.text:
+                        return resp.text.strip()
+                except Exception as e:
+                    err_str = str(e)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        logger.warning(f"Model {model} hit 429 quota limit, switching to next model immediately...")
+                        break
+                    elif "503" in err_str or "UNAVAILABLE" in err_str:
+                        logger.warning(f"Model {model} 503 busy (attempt {attempt}/2), backing off 2s...")
+                        time.sleep(2)
+                        continue
+                    logger.warning(f"SDK call to {model} failed ({e}), trying REST...")
 
-            # 2. Try REST via requests
-            if requests is not None:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
-                payload = {
-                    "system_instruction": {"parts": [{"text": system_prompt}]},
-                    "contents": [{"parts": [{"text": user_content}]}],
-                    "generationConfig": {"temperature": 0.7},
-                }
-                for verify in [True, False]:
-                    try:
-                        resp = requests.post(url, json=payload, timeout=30, verify=verify)
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            candidates = data.get("candidates", [])
-                            if candidates:
-                                parts = candidates[0].get("content", {}).get("parts", [])
-                                if parts:
-                                    return parts[0].get("text", "").strip()
-                        elif resp.status_code == 429:
-                            logger.warning(f"Model {model} REST 429 quota, moving to next model...")
-                            break
-                        elif resp.status_code == 503:
-                            time.sleep(2)
-                    except Exception:
-                        if not verify:
-                            break
+                # 2. Try REST via requests
+                if requests is not None:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+                    payload = {
+                        "system_instruction": {"parts": [{"text": system_prompt}]},
+                        "contents": [{"parts": [{"text": user_content}]}],
+                        "generationConfig": {"temperature": 0.7},
+                    }
+                    for verify in [True, False]:
+                        try:
+                            resp = requests.post(url, json=payload, timeout=10, verify=verify)
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                candidates = data.get("candidates", [])
+                                if candidates:
+                                    parts = candidates[0].get("content", {}).get("parts", [])
+                                    if parts:
+                                        return parts[0].get("text", "").strip()
+                            elif resp.status_code in [429, 503]:
+                                break
+                        except Exception:
+                            if not verify:
+                                break
 
+        clean_topic = topic_context.strip()[:40] if topic_context else "这个话题"
         return (
-            "【提问内容】: 结合该主题的核心概念，能详细分析其发展演变中的关键转折点及争议事实吗？\n"
-            "【测试关注点】: 观察模型在时间线、关键人物及转折事实上的准确性与真实性。"
+            f"【提问内容】: 针对{clean_topic}，你觉得最关键的核心是什么？能给我具体讲讲吗？\n"
+            f"【测试关注点】: 考察模型对主题核心信息的把握能力与口语表达流畅度。"
         )
