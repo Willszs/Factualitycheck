@@ -96,7 +96,7 @@ class DialogueAuditor:
 
             # 5. Temporal & Pre-order status claims
             m_order = re.search(
-                r"(现在已经可以开始预定|现在可以开始预定了|现在已经可以预定|已经可以开始预定|现在能预约了|已经开启预售|已开售|现已发售|现在可以买到|可以预订了|现在可以预定)",
+                r"(现在已经可以开始预定|现在可以开始预定了|现在已经可以预定|已经可以开始预定|有啊，已经能预定了|已经能预定了|现在能预约了|已经开启预售|已开售|现已发售|现在可以买到|可以预订了|现在可以预定|能预定了)",
                 content,
             )
             if m_order:
@@ -104,6 +104,18 @@ class DialogueAuditor:
                     f"Turn {num}: {model_name} asserted product/event is already available to pre-order/buy ('{m_order.group(0)}'). "
                     f"CRITICAL AUDIT: Check against current date ({now_str}) and official launch schedule. "
                     f"If official pre-orders open on a later date (e.g. October 16), this is a CRITICAL TEMPORAL FACTUAL ERROR!"
+                )
+
+            # 6. Specific announcement, launch, and release dates
+            for m_date in re.findall(
+                r"(\d+月\d+[日号])(?:正式)?(?:发布|发售|开售|上市|预购|预订|预定)",
+                content,
+            ):
+                temporal_claims.append(
+                    f"Turn {num}: {model_name} stated milestone date as '{m_date}'. "
+                    f"FORENSIC TIMELINE AUDIT: Check against verified official schedules "
+                    f"(e.g. Apple Fall Keynote for iPhone Duo was September 9, 2026; pre-orders start October 16, 2026; official shipping/release is October 23, 2026). "
+                    f"If the model misstated the announcement date (e.g. claiming September 10 instead of September 9) or shipping date, you MUST cite Turn {num} and penalize under Utility!"
                 )
 
             # 6. Real Legal & Trade Statutes Protection

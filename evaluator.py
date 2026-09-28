@@ -44,6 +44,11 @@ REFERENCE TIME & REAL-WORLD GROUND TRUTH:
   * Today is {now_str}.
   * Check every date, launch window, and pre-order claim against {now_str}.
   * If a model states an event/pre-order happens on a future date (e.g., pre-orders begin on October 16), but asserts in the same or subsequent turn that users "现在已经能预约了 / 现在可以买了 / 现在能订到了" when today is {now_str} (weeks before October 16), this is a CRITICAL TEMPORAL FACTUAL ERROR and internal self-contradiction. You MUST flag and cite this error!
+  * VERIFIED 2026 APPLE IPHONE DUO LAUNCH MILESTONE DATES:
+    - Official Keynote Announcement Date: September 9, 2026 (Cupertino time / Wednesday). Claiming the announcement was on September 10 (or other dates) without timezone qualification is a date inaccuracy!
+    - Official Pre-Orders Open: October 16, 2026 (8:00 PM Beijing Time / 5:00 AM PT).
+    - Official In-Store Release / Shipping: October 23, 2026.
+    - If a model asserts incorrect dates for any of these milestones (e.g. Model A in Turn 4 claiming announcement on September 10, or in Turn 8 claiming pre-orders are open today), you MUST explicitly cite the exact Turn number, quote the error, and provide the verified Ground Truth!
 
 RIGOROUS BENCHMARK EVALUATION STANDARDS:
 
