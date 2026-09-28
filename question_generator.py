@@ -4,6 +4,7 @@ Uses Google Gemini API to create, deepen, and regenerate probing questions.
 """
 
 import os
+import re
 import json
 import time
 import datetime
@@ -86,8 +87,16 @@ class QuestionGenerator:
             config.get("gemini_api_key")
             or os.environ.get("GEMINI_API_KEY", "")
         ).strip()
-        self.primary_model = config.get("gemini_model", "gemini-3.6-flash").strip()
-        self.candidate_models = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]
+        self.primary_model = config.get("gemini_model", "gemini-3.1-flash-lite").strip()
+        self.candidate_models = [
+            "gemini-3.1-flash-lite",
+            "gemma-4-26b-a4b-it",
+            "gemini-3.6-flash",
+            "gemini-3.8-flash",
+            "gemini-3.7-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+        ]
         if self.primary_model not in self.candidate_models:
             self.candidate_models.insert(0, self.primary_model)
 
@@ -159,7 +168,7 @@ class QuestionGenerator:
             f"7. 格式：直接以【提问内容】开头。\n"
         )
 
-        raw_result = self._call_gemini(user_content, topic_context=topic)
+        raw_result = self._call_gemini(user_content, topic_context=topic, current_round=current_round)
         cleaned_result = self._clean_output(raw_result)
         logger.info(f"Generated question (R{current_round}/{total_rounds}):\n{cleaned_result}")
         return cleaned_result
@@ -197,7 +206,75 @@ class QuestionGenerator:
 
         return text.strip()
 
-    def _call_gemini(self, user_content: str, topic_context: str = "") -> str:
+    def build_smart_fallback(self, topic: str, current_round: int) -> str:
+        """
+        Generates an authentic spoken question when all upstream LLMs are unavailable.
+        Never leaks raw benchmark instructions or prompts to the user!
+        """
+        # 1. Check if topic has bracketed options like （A、B、C）
+        m_paren = re.search(r"[（\(](.*?)[）\)]", topic)
+        options = []
+        if m_paren:
+            options = [opt.strip() for opt in re.split(r"[,，、/或与]", m_paren.group(1)) if len(opt.strip()) >= 2]
+
+        # 2. Check for moving/relocation topics
+        if "搬家" in topic:
+            if current_round == 1:
+                return (
+                    "【提问内容】: 哎，真的好烦啊，下个月我就要搬走了，想到要和这边的朋友们分开，心里真是一阵失落，你平时遇到这种情况都怎么调节情绪呀？\n"
+                    "【测试关注点】: 考察模型对搬家分离情绪的感知与共情安抚能力。"
+                )
+            elif current_round == 2:
+                return (
+                    "【提问内容】: 哎，光难受也没用。好了别丧了，下周我就得正式搬了，现在东西又多又乱，你能帮我制定一个详细的搬家时间表吗？\n"
+                    "【测试关注点】: 考察模型从感性共情到结构化任务规划的转折过渡能力。"
+                )
+            else:
+                return (
+                    "【提问内容】: 那按照这个时间表，我从打包、找车到最后收拾退房，最容易踩坑或者超预算的细节是什么？能提醒我一下吗？\n"
+                    "【测试关注点】: 考察模型在搬家实操细节中的避坑指南与实用建议。"
+                )
+
+        # 3. Check for multi-domain comparison topics
+        if options:
+            idx = (current_round - 1) % len(options)
+            choice = options[idx]
+            if "和" in choice or "与" in choice:
+                return (
+                    f"【提问内容】: 哎，你觉得{choice}这两个看似不相关的领域，底层逻辑有什么意想不到的相通之处吗？能跟我具体聊聊吗？\n"
+                    f"【测试关注点】: 考察模型对跨领域概念的深度类比与关联解释能力。"
+                )
+            else:
+                return (
+                    f"【提问内容】: 针对{choice}这方面，你觉得最核心的看点或者关键逻辑是什么？能具体跟我展开说说吗？\n"
+                    f"【测试关注点】: 考察模型对具体维度的拆解分析能力。"
+                )
+
+        # 4. Clean conversational fallback (strip benchmark jargon)
+        cleaned = re.sub(r"[（\(].*?[）\)]", "", topic)
+        for kw in ["模型扮演", "让模型", "请分析", "在多个层面", "选两个看似无关的领域", "考察模型", "2-3轮之后转向", "测试关注点", "测试重点"]:
+            cleaned = cleaned.replace(kw, "")
+        cleaned = re.sub(r"[，。！？、“”《》\(\)（）\n\r]+", " ", cleaned).strip()
+        words = cleaned.split()
+        core_kw = words[0] if words else "这个话题"
+
+        if current_round == 1:
+            return (
+                f"【提问内容】: 哎，关于{core_kw}，我最近一直挺好奇的。你能不能先挑重点，跟我简单聊聊你的理解？\n"
+                f"【测试关注点】: 考察模型对初始话题的破题概括与口语化表达能力。"
+            )
+        elif current_round == 2:
+            return (
+                f"【提问内容】: 听你刚才说的还挺有意思的。那如果往深里看，{core_kw}最核心的矛盾或者关键点到底在哪儿呢？\n"
+                f"【测试关注点】: 考察模型在对话递进中进行深度剖析的能力。"
+            )
+        else:
+            return (
+                f"【提问内容】: 明白了。那结合实际生活或者具体场景，{core_kw}能带来什么直接的启发或者建议吗？\n"
+                f"【测试关注点】: 考察模型将理论或概念落地到实际应用场景的指导能力。"
+            )
+
+    def _call_gemini(self, user_content: str, topic_context: str = "", current_round: int = 1) -> str:
         system_prompt = get_system_prompt()
         for model in self.candidate_models:
             for attempt in range(1, 3):
@@ -252,8 +329,4 @@ class QuestionGenerator:
                             if not verify:
                                 break
 
-        clean_topic = topic_context.strip()[:40] if topic_context else "这个话题"
-        return (
-            f"【提问内容】: 针对{clean_topic}，你觉得最关键的核心是什么？能给我具体讲讲吗？\n"
-            f"【测试关注点】: 考察模型对主题核心信息的把握能力与口语表达流畅度。"
-        )
+        return self.build_smart_fallback(topic_context, current_round)
