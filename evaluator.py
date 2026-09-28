@@ -123,12 +123,12 @@ STRICT FORMAT & LENGTH RULES:
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
 - NO bullet points (*, -) or numbered lists. Write flowing prose within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
-- STRICT WORD LIMIT CONSTRAINTS (字数硬性限制 - 两个板块各自 300 词内，总共 600 词内):
-  * Paragraph 1 (Conversational Dynamics): MUST be strictly under 300 words.
-  * Paragraph 2 (Utility): MUST be strictly under 300 words.
-  * Total combined word count MUST be strictly under 600 words.
-  * High information density: be concise, sharp, and direct. Cut all verbose filler and repetitive fluff.
-  * Key details MUST be preserved: exact Turn numbers, exact error quotes/behaviors, and exact verified Ground Truth facts/corrections.
+- STRICT WORD LIMIT CONSTRAINTS (字数硬性限制 - 两个板块各自 150 词内，总共 300 词内):
+  * Paragraph 1 (Conversational Dynamics): MUST be strictly under 150 words (aim for ~80-120 words).
+  * Paragraph 2 (Utility): MUST be strictly under 150 words (aim for ~80-120 words).
+  * Total combined word count MUST be strictly under 300 words.
+  * Ultra-high information density: deliver punchy, surgical judgments. Cut all verbose framing, philosophical commentary, and repetitive explanations.
+  * Key forensic details MUST be retained: cite exact Turn numbers, quote specific errors/flaws, and state verified Ground Truth facts/corrections directly.
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -234,20 +234,20 @@ class FactualityEvaluator:
         p1 = re.sub(r"[\r\n]+", " ", p1)
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
-        # Truncate each paragraph to strictly under 300 words if necessary
-        p1 = cls._truncate_to_word_limit(p1, max_words=300)
+        # Truncate each paragraph to strictly under 150 words if necessary
+        p1 = cls._truncate_to_word_limit(p1, max_words=150)
 
         # Normalize internal spacing of paragraph 2
         if p2:
             p2 = re.sub(r"###.*$", "", p2).strip()
             p2 = re.sub(r"[\r\n]+", " ", p2)
             p2 = re.sub(r"\s{2,}", " ", p2).strip()
-            p2 = cls._truncate_to_word_limit(p2, max_words=300)
+            p2 = cls._truncate_to_word_limit(p2, max_words=150)
             return f"{p1}\n\n{p2}"
         return p1
 
     @staticmethod
-    def _truncate_to_word_limit(paragraph: str, max_words: int = 300) -> str:
+    def _truncate_to_word_limit(paragraph: str, max_words: int = 150) -> str:
         words = paragraph.split()
         if len(words) <= max_words:
             return paragraph

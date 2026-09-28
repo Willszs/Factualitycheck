@@ -70,12 +70,12 @@ class TestFactualityComponents(unittest.TestCase):
         cleaned = FactualityEvaluator.clean_evaluation_report(sample_raw)
         paragraphs = cleaned.split("\n\n")
         self.assertEqual(len(paragraphs), 2)
-        # Each paragraph must be <= 300 words
+        # Each paragraph must be <= 150 words, total <= 300 words
         p1_words = len(paragraphs[0].split())
         p2_words = len(paragraphs[1].split())
-        self.assertLessEqual(p1_words, 300)
-        self.assertLessEqual(p2_words, 300)
-        self.assertLessEqual(p1_words + p2_words, 600)
+        self.assertLessEqual(p1_words, 150)
+        self.assertLessEqual(p2_words, 150)
+        self.assertLessEqual(p1_words + p2_words, 300)
 
     @patch("requests.post")
     def test_telegram_notifier_success(self, mock_post):
