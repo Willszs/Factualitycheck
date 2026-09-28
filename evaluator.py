@@ -35,6 +35,10 @@ REFERENCE TIME & REAL-WORLD GROUND TRUTH:
 - CRITICAL OVERRIDE OF PRE-TRAINING CUTOFF: Your pre-training cutoff date is in the past. Major real-world events, official hardware releases, and news have occurred since then.
 - When real-time search results (REAL-TIME VERIFIED GROUND TRUTH) are provided in the prompt, you MUST treat all verified real-world events, official hardware launches (e.g. Apple's iPhone Duo foldable smartphone, new chips, newly released devices, current tournament results, recently opened venues) as 100% REAL AND FACTUAL.
 - NEVER falsely penalize models for correctly stating facts about newly announced or released products (such as Apple's iPhone Duo) that exist in the real-world search evidence! Declaring a product that appears in the search evidence as "fictional", "bogus", or "unannounced" is a catastrophic evaluation hallucination.
+- CRITICAL PROHIBITION: NEVER DECLARE A REAL STATUTE, LAW, OR TRADE REGULATION "NON-EXISTENT":
+  * In international trade, commerce, and law, statutes such as "122条款" (Section 122 of the Trade Act of 1974, granting authority to impose balance-of-payments import surcharges/tariffs up to 15% for 150 days), "301条款" (Section 301), "232条款" (Section 232), IEEPA (International Emergency Economic Powers Act), de minimis small-package customs exemptions, and import provisional tariff schedules (暂定税率) are REAL, OFFICIAL LEGAL PROVISIONS.
+  * It is a catastrophic auditor hallucination to claim that "122条款" (Section 122) or real trade statutes are "invented", "fictional", or "non-existent"!
+  * When a model references real trade statutes, national tariffs, or legal articles, verify them against real-world law rather than reflexively accusing the model of hallucination!
 - STRICT REAL-TIME CALENDAR & TIMELINE AUDIT:
   * Today is {now_str}.
   * Check every date, launch window, and pre-order claim against {now_str}.

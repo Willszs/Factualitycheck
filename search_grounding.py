@@ -26,6 +26,7 @@ class SearchGrounding:
         "比赛", "球队", "对决", "比分", "胜负", "欧冠", "英超", "NBA", "CBA", "世界杯", "联赛", "赛程",
         "电影", "上映", "院线", "票房", "剧", "音乐节", "演唱会", "阵容", "演出", "展演",
         "最新", "刚发布", "刚刚", "最近", "近期", "昨天", "今天", "本周", "这周末",
+        "关税", "贸易", "政策", "条款", "法规", "法案", "规定", "税率", "外贸", "豁免",
     ]
 
     @classmethod
@@ -194,7 +195,21 @@ class SearchGrounding:
         now_year = datetime.datetime.now().strftime("%Y")
         queries = []
 
-        # 1. Look for specific named product models (e.g. iPhone Duo, Mate XT, X500, 折叠屏, 欧冠, etc.)
+        # 1. Trade & Policy statutes, clauses, and regulations (e.g. 122条款, IEEPA, 暂定税率)
+        for pattern in [
+            r"(\d+条款)", r"(Section\s*\d+)", r"(IEEPA)", r"(暂定税率)",
+            r"(小额豁免|de minimis)", r"(碳关税|CBAM)", r"(第\d+条)",
+            r"(HIPAA|GDPR|CCPA)"
+        ]:
+            matches = re.findall(pattern, combined, flags=re.IGNORECASE)
+            for m in matches:
+                clean_m = m.strip()
+                if clean_m:
+                    query_text = f"{clean_m} 关税" if ("条款" in clean_m or "Section" in clean_m) else clean_m
+                    if query_text not in queries:
+                        queries.append(query_text)
+
+        # 2. Look for specific named product models (e.g. iPhone Duo, Mate XT, X500, 折叠屏, 欧冠, etc.)
         for pattern in [r"(iPhone\s+[A-Za-z0-9]+)", r"(Mate\s+[A-Za-z0-9]+)", r"(vivo\s+[A-Za-z0-9]+)", r"(小米\s+[A-Za-z0-9]+)", r"([A-Za-z0-9]+\s+折叠[屏机]?)", r"(折叠[屏机])"]:
             matches = re.findall(pattern, combined, flags=re.IGNORECASE)
             for m in matches:
@@ -202,24 +217,23 @@ class SearchGrounding:
                 if len(clean_m) >= 3 and clean_m not in queries:
                     queries.append(f"{clean_m} {now_year}")
 
-        # 2. Extract user's opening question from Turn 1
+        # 3. Extract core domain keywords from Turn 1 (strip conversational noise)
         lines = [line.strip() for line in transcript_a.splitlines() if line.strip()]
         if lines:
             first_user_line = lines[0]
-            if len(first_user_line) > 5:
-                clean_q = re.sub(r"[，。！？、“”《》\(\)（）\n\r]+", " ", first_user_line).strip()
-                words = clean_q.split()
-                if words:
-                    core_q = " ".join(words[:4])
-                    if core_q not in queries:
-                        queries.append(f"{core_q} {now_year}")
+            matched_topics = []
+            for topic_kw in ["国际贸易政策", "关税变动", "贸易政策", "最新手机", "新手机", "折叠屏", "在映电影", "最新比赛"]:
+                if topic_kw in first_user_line and topic_kw not in matched_topics:
+                    matched_topics.append(topic_kw)
+            if matched_topics:
+                queries.append(f"{' '.join(matched_topics)} {now_year}")
 
-        # Deduplicate and limit to 2 queries
+        # Deduplicate and limit to 3 focused queries
         unique_queries = []
         for q in queries:
             if q not in unique_queries:
                 unique_queries.append(q)
-            if len(unique_queries) >= 2:
+            if len(unique_queries) >= 3:
                 break
 
         if not unique_queries:
@@ -258,9 +272,9 @@ class SearchGrounding:
 
         res_lines.append(
             "\n[CRITICAL AUDITOR GROUNDING DIRECTIVE / 评估员事实核查绝对法则]:\n"
-            "1. The entities, products, and events listed above (e.g. Apple's iPhone Duo foldable smartphone, new chips, tournament results, venue openings) are 100% REAL AND VERIFIED in the current real world.\n"
-            "2. DO NOT rely on pre-training knowledge cutoff to claim these products are fictional or unannounced. It is a severe evaluation failure to penalize models for stating these verified real-world facts.\n"
-            "3. If a model mentions these verified entities, launch dates, or specifications consistent with real-world reports, its statements are FACTUALLY ACCURATE.\n"
+            "1. The entities, products, trade policies, statutes, and events listed above (e.g. Section 122 tariffs / 122条款关税, IEEPA, tariff quotas, de minimis exemptions, Apple's iPhone Duo, tournament results) are 100% REAL AND VERIFIED in the current real world.\n"
+            "2. DO NOT rely on pre-training knowledge cutoff or lack of familiarity to claim these products, laws, or trade policies are fictional, unannounced, or non-existent! It is a severe evaluation failure to falsely accuse accurate models of inventing real statutes.\n"
+            "3. If a model mentions these verified entities, statutes, or specifications consistent with real-world reports, its statements are FACTUALLY ACCURATE.\n"
             "4. Only mark a statement as a factual error if it directly contradicts verified real-world facts or fabricates non-existent details."
         )
         return "\n".join(res_lines)
