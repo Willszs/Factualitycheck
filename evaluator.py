@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional
 import datetime
 
 from search_grounding import SearchGrounding
+from dialogue_auditor import DialogueAuditor
 
 try:
     import requests
@@ -163,8 +164,13 @@ class FactualityEvaluator:
         grounding_context = SearchGrounding.search_transcripts(transcript_a, transcript_b)
         grounding_section = f"{grounding_context}\n\n" if grounding_context else ""
 
+        # Pre-audit transcripts with deterministic code-level analysis
+        pre_audit_context = DialogueAuditor.generate_pre_audit_report(transcript_a, transcript_b)
+        pre_audit_section = f"{pre_audit_context}\n\n" if pre_audit_context else ""
+
         user_content = (
             f"{grounding_section}"
+            f"{pre_audit_section}"
             f"=== MODEL A DIALOGUE TRANSCRIPT ===\n{transcript_a.strip()}\n\n"
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )

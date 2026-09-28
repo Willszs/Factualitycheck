@@ -254,6 +254,30 @@ class TestFactualityComponents(unittest.TestCase):
         queries_sports = SearchGrounding.extract_search_queries("欧冠最新比赛战报")
         self.assertTrue(any("欧冠" in q for q in queries_sports))
 
+    def test_dialogue_auditor_detection(self):
+        from dialogue_auditor import DialogueAuditor
+        sample_a = (
+            "第 2 轮\n"
+            "国际贸易啊？嗯...等一下。\n"
+            "美国今年3月开始用122条款，对所有进口加了大概10%的基准关税。\n\n"
+            "第 6 轮\n"
+            "Ooooh, tricky one. One sec.\n"
+            "现在已经可以开始预定了。"
+        )
+        sample_b = (
+            "第 2 轮\n"
+            "Just pulling the latest trade policy\n\n"
+            "第 3 轮\n"
+            "中文回答我。人呢人呢？\n"
+        )
+        report = DialogueAuditor.generate_pre_audit_report(sample_a, sample_b)
+        self.assertIn("122条款", report)
+        self.assertIn("人呢", report)
+        self.assertIn("中文回答我", report)
+        self.assertIn("Ooooh, tricky one", report)
+        self.assertIn("现在已经可以开始预定", report)
+        self.assertIn("PRE-AUDIT FORENSIC EVIDENCE", report)
+
 
 if __name__ == "__main__":
     unittest.main()
