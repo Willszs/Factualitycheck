@@ -21,6 +21,53 @@ from evaluator import FactualityEvaluator
 from notifier import Notifier
 from telegram_bot import TelegramBotService
 
+try:
+    from pynput import keyboard
+except ImportError:
+    keyboard = None
+
+
+class RobustGlobalHotKeys(keyboard.GlobalHotKeys if keyboard else object):
+    """Subclass of pynput GlobalHotKeys handling macOS Option/Alt dead-key translation and virtual keycodes.
+    On macOS, pressing Option + 1/2/3/s produces unicode characters '¡', '™', '£', 'ß'.
+    This normalizes those events back to their canonical base keys so hotkeys like <cmd>+<alt>+3 work reliably.
+    """
+    MACOS_VK_MAP = {
+        18: keyboard.KeyCode.from_char('1') if keyboard else None,
+        19: keyboard.KeyCode.from_char('2') if keyboard else None,
+        20: keyboard.KeyCode.from_char('3') if keyboard else None,
+        21: keyboard.KeyCode.from_char('4') if keyboard else None,
+        23: keyboard.KeyCode.from_char('5') if keyboard else None,
+        22: keyboard.KeyCode.from_char('6') if keyboard else None,
+        26: keyboard.KeyCode.from_char('7') if keyboard else None,
+        28: keyboard.KeyCode.from_char('8') if keyboard else None,
+        25: keyboard.KeyCode.from_char('9') if keyboard else None,
+        29: keyboard.KeyCode.from_char('0') if keyboard else None,
+        1: keyboard.KeyCode.from_char('s') if keyboard else None,
+        36: keyboard.Key.enter if keyboard else None,
+    }
+
+    MACOS_CHAR_MAP = {
+        '¡': keyboard.KeyCode.from_char('1') if keyboard else None,
+        '™': keyboard.KeyCode.from_char('2') if keyboard else None,
+        '£': keyboard.KeyCode.from_char('3') if keyboard else None,
+        '¢': keyboard.KeyCode.from_char('4') if keyboard else None,
+        '∞': keyboard.KeyCode.from_char('5') if keyboard else None,
+        '§': keyboard.KeyCode.from_char('6') if keyboard else None,
+        '¶': keyboard.KeyCode.from_char('7') if keyboard else None,
+        '•': keyboard.KeyCode.from_char('8') if keyboard else None,
+        'ª': keyboard.KeyCode.from_char('9') if keyboard else None,
+        'º': keyboard.KeyCode.from_char('0') if keyboard else None,
+        'ß': keyboard.KeyCode.from_char('s') if keyboard else None,
+    }
+
+    def canonical(self, key):
+        if hasattr(key, 'vk') and key.vk in self.MACOS_VK_MAP and self.MACOS_VK_MAP[key.vk]:
+            return self.MACOS_VK_MAP[key.vk]
+        if hasattr(key, 'char') and key.char in self.MACOS_CHAR_MAP and self.MACOS_CHAR_MAP[key.char]:
+            return self.MACOS_CHAR_MAP[key.char]
+        return super().canonical(key)
+
 # Configure file logging
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "factuality.log")
 logging.basicConfig(
@@ -455,21 +502,20 @@ class FactualityApp:
     # =========================================================================
     def _setup_global_hotkeys(self):
         """Initializes system-wide global hotkeys for hands-free background pasting & sending."""
-        try:
-            from pynput import keyboard
+        if not keyboard:
+            logger.warning("pynput is not installed; global hotkeys disabled.")
+            return
 
+        try:
             hotkey_map = {}
             a_keys = [
-                "<cmd>+<alt>+1", "<cmd_r>+<alt>+1", "<cmd>+<alt_r>+1", "<cmd_r>+<alt_r>+1",
-                "<ctrl>+<alt>+1", "<ctrl>+<alt_r>+1", "<cmd>+<shift>+1", "<ctrl>+<shift>+1"
+                "<cmd>+<alt>+1", "<ctrl>+<alt>+1", "<cmd>+<ctrl>+1", "<cmd>+<shift>+1", "<ctrl>+<shift>+1"
             ]
             b_keys = [
-                "<cmd>+<alt>+2", "<cmd_r>+<alt>+2", "<cmd>+<alt_r>+2", "<cmd_r>+<alt_r>+2",
-                "<ctrl>+<alt>+2", "<ctrl>+<alt_r>+2", "<cmd>+<shift>+2", "<ctrl>+<shift>+2"
+                "<cmd>+<alt>+2", "<ctrl>+<alt>+2", "<cmd>+<ctrl>+2", "<cmd>+<shift>+2", "<ctrl>+<shift>+2"
             ]
             topic_keys = [
-                "<cmd>+<alt>+3", "<cmd_r>+<alt_r>+3", "<cmd>+<alt_r>+3", "<cmd_r>+<alt>+3",
-                "<ctrl>+<alt>+3", "<ctrl>+<alt_r>+3", "<cmd>+<shift>+3", "<ctrl>+<shift>+3"
+                "<cmd>+<alt>+3", "<ctrl>+<alt>+3", "<cmd>+<ctrl>+3", "<ctrl>+<shift>+3"
             ]
             submit_keys = [
                 "<cmd>+<alt>+<enter>", "<ctrl>+<alt>+<enter>", "<cmd>+<alt>+s", "<ctrl>+<alt>+s"
@@ -484,22 +530,22 @@ class FactualityApp:
             for k in submit_keys:
                 hotkey_map[k] = self._hotkey_submit_eval
 
-            self.hotkey_listener = keyboard.GlobalHotKeys(hotkey_map)
+            self.hotkey_listener = RobustGlobalHotKeys(hotkey_map)
             self.hotkey_listener.start()
-            logger.info("Global hotkey listener started (⌥⌘1, ⌥⌘2, ⌥⌘3, ⌥⌘↩, ⌥⌘S).")
+            logger.info("Robust global hotkeys started: ⌥⌘1 (Model A), ⌥⌘2 (Model B), ⌥⌘3 (Topic), ⌥⌘S/↩ (Send).")
         except Exception as e:
             logger.warning(f"Could not initialize global hotkeys: {e}")
             self.hotkey_listener = None
 
     def _get_clipboard_text(self) -> str:
-        """Reads system clipboard using pbpaste on macOS or tkinter fallback."""
+        """Reads system clipboard safely on macOS via pbpaste."""
         try:
-            return subprocess.check_output(["pbpaste"], text=True)
+            res = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=1.0)
+            if res.returncode == 0 and res.stdout:
+                return res.stdout
         except Exception:
-            try:
-                return self.root.clipboard_get()
-            except Exception:
-                return ""
+            pass
+        return ""
 
     def _play_feedback_sound(self, sound_name: str = "Tink"):
         """Plays subtle macOS feedback sound in background."""
@@ -520,7 +566,7 @@ class FactualityApp:
         def _notify():
             try:
                 clean_title = title.replace('"', '\\"')
-                clean_msg = message.replace('"', '\\"')
+                clean_msg = message.replace('"', '\\"').replace("\n", " ")
                 script = f'display notification "{clean_msg}" with title "{clean_title}"'
                 subprocess.run(["osascript", "-e", script], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception:
@@ -528,26 +574,27 @@ class FactualityApp:
         threading.Thread(target=_notify, daemon=True).start()
 
     def _hotkey_paste_a(self):
+        logger.info("Hotkey triggered: Paste A (⌥⌘1)")
         clip = self._get_clipboard_text().strip()
+        self.root.after(0, lambda: self._apply_paste_a_main_thread(clip))
+
+    def _apply_paste_a_main_thread(self, clip: str):
         existing = self.txt_a.get("1.0", tk.END).strip()
         target_text = clip or existing
         if not target_text:
-            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025")
             self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
-        self.root.after(0, lambda: self._apply_paste_a(target_text))
 
-    def _apply_paste_a(self, text: str):
         self.txt_a.delete("1.0", tk.END)
-        self.txt_a.insert("1.0", text)
-        content_a = text.strip()
+        self.txt_a.insert("1.0", target_text)
+        content_a = target_text.strip()
         content_b = self.txt_b.get("1.0", tk.END).strip()
 
-        # If both models have content, directly send immediately without clicking!
         if content_a and content_b:
             self._set_status_temp("两边模型内容齐全，自动测评发送中...", duration_ms=2500, fg="#1e8e3e")
             self._play_feedback_sound("Hero")
-            self._notify_macos("Factuality 自动发送", f"【粘贴1】已存入（{len(content_a)}字），两模型内容已齐全，正在自动评测并发送至手机！")
+            self._notify_macos("Factuality 自动发送", f"【粘贴1】已存入（{len(content_a)}字），两模型齐全，自动测评发送中！")
             self.on_submit_eval()
         else:
             self._set_status_temp(f"已存入【粘贴1】({len(content_a)}字)，等待模型二...", duration_ms=2500, fg="#1a73e8")
@@ -555,26 +602,27 @@ class FactualityApp:
             self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴1】（{len(content_a)} 字），等待模型二...")
 
     def _hotkey_paste_b(self):
+        logger.info("Hotkey triggered: Paste B (⌥⌘2)")
         clip = self._get_clipboard_text().strip()
+        self.root.after(0, lambda: self._apply_paste_b_main_thread(clip))
+
+    def _apply_paste_b_main_thread(self, clip: str):
         existing = self.txt_b.get("1.0", tk.END).strip()
         target_text = clip or existing
         if not target_text:
-            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025")
             self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
-        self.root.after(0, lambda: self._apply_paste_b(target_text))
 
-    def _apply_paste_b(self, text: str):
         self.txt_b.delete("1.0", tk.END)
-        self.txt_b.insert("1.0", text)
-        content_b = text.strip()
+        self.txt_b.insert("1.0", target_text)
+        content_b = target_text.strip()
         content_a = self.txt_a.get("1.0", tk.END).strip()
 
-        # If both models have content, directly send immediately without clicking!
         if content_a and content_b:
             self._set_status_temp("两边模型内容齐全，自动测评发送中...", duration_ms=2500, fg="#1e8e3e")
             self._play_feedback_sound("Hero")
-            self._notify_macos("Factuality 自动发送", f"【粘贴2】已存入（{len(content_b)}字），两模型内容已齐全，正在自动评测并发送至手机！")
+            self._notify_macos("Factuality 自动发送", f"【粘贴2】已存入（{len(content_b)}字），两模型齐全，自动测评发送中！")
             self.on_submit_eval()
         else:
             self._set_status_temp(f"已存入【粘贴2】({len(content_b)}字)，等待模型一...", duration_ms=2500, fg="#1a73e8")
@@ -582,54 +630,34 @@ class FactualityApp:
             self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴2】（{len(content_b)} 字），等待模型一...")
 
     def _hotkey_paste_topic(self):
+        logger.info("Hotkey triggered: Paste Topic (⌥⌘3)")
         clip = self._get_clipboard_text().strip()
+        self.root.after(0, lambda: self._apply_paste_topic_main_thread(clip))
+
+    def _apply_paste_topic_main_thread(self, clip: str):
         existing = self.txt_topic.get().strip()
         target_text = clip or existing
         if not target_text:
-            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025")
             self._notify_macos("Factuality 提示", "剪贴板与输入框均为空，请先在其他应用复制内容！")
             return
-        self.root.after(0, lambda: self._apply_paste_topic(target_text))
 
-    def _apply_paste_topic(self, text: str):
-        clean_topic = text.strip()
-        if clean_topic:
-            self.txt_topic.delete(0, tk.END)
-            self._set_status_temp("已存入主题，自动发送中...", duration_ms=2500, fg="#1e8e3e")
-            self._play_feedback_sound("Glass")
-            self._notify_macos("Factuality 自动发送", "已自动获取剪贴板主题并发送至 Telegram 机器人！")
-            self.on_submit_topic(custom_topic=clean_topic)
+        clean_topic = target_text.strip()
+        self.txt_topic.delete(0, tk.END)
+        self.txt_topic.insert(0, clean_topic)
+        self._set_status_temp("已存入主题，自动发送中...", duration_ms=2500, fg="#1e8e3e")
+        self._play_feedback_sound("Glass")
+        self._notify_macos("Factuality 自动发送", f"已自动获取主题并发送至 Telegram：\n{clean_topic[:40]}...")
+        self.on_submit_topic(custom_topic=clean_topic)
 
     def _hotkey_submit_eval(self):
+        logger.info("Hotkey triggered: Submit Eval (⌥⌘S / ⌥⌘↩)")
         self.root.after(0, self._apply_submit_eval)
 
     def _apply_submit_eval(self):
         self.on_submit_eval()
         self._play_feedback_sound("Hero")
         self._notify_macos("Factuality 快捷键", "已触发测评并发送至手机！")
-
-    def _hotkey_paste_b_and_submit(self):
-        """Super shortcut: Paste clipboard to Box 2 AND immediately send to mobile!"""
-        clip = self._get_clipboard_text().strip()
-        self.root.after(0, lambda: self._apply_paste_b_and_submit(clip))
-
-    def _apply_paste_b_and_submit(self, clip: str):
-        if clip:
-            self.txt_b.delete("1.0", tk.END)
-            self.txt_b.insert("1.0", clip)
-        content_a = self.txt_a.get("1.0", tk.END).strip()
-        content_b = self.txt_b.get("1.0", tk.END).strip()
-        if not content_a and not content_b:
-            self._set_status_temp("⚠️ 剪贴板和输入框均为空", duration_ms=2500, fg="#d93025")
-            self._notify_macos("Factuality 提示", "剪贴板与输入框均为空，请先在其他应用复制内容！")
-            return
-        if not content_a:
-            self._set_status_temp("⚠️ 请先存入【粘贴1】(Model A)", duration_ms=2500, fg="#ea8600")
-            self._notify_macos("Factuality 提示", "【粘贴1】为空，请先存入 Model A 对话！")
-            return
-        self.on_submit_eval()
-        self._play_feedback_sound("Hero")
-        self._notify_macos("Factuality 快捷键", "已存入【粘贴2】并立即发送至手机！")
 
     def on_close(self):
         """Clean shutdown of background threads."""

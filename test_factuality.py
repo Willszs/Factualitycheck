@@ -298,6 +298,54 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertFalse(success)
         self.assertEqual(msg, "待输入文本为空")
 
+    def test_macos_robust_hotkeys(self):
+        from pynput.keyboard import Key, KeyCode
+        from app import RobustGlobalHotKeys
+
+        triggered = []
+        hotkeys = {
+            '<cmd>+<alt>+1': lambda: triggered.append('paste_a'),
+            '<cmd>+<alt>+2': lambda: triggered.append('paste_b'),
+            '<cmd>+<alt>+3': lambda: triggered.append('paste_topic'),
+            '<cmd>+<alt>+s': lambda: triggered.append('submit'),
+        }
+
+        listener = RobustGlobalHotKeys(hotkeys)
+
+        # 1. Test Option+3 on macOS (dead-key produces '£', vk=20)
+        listener._on_press(Key.cmd, False)
+        listener._on_press(Key.alt, False)
+        listener._on_press(KeyCode.from_char('£', vk=20), False)
+        listener._on_release(KeyCode.from_char('£', vk=20), False)
+        listener._on_release(Key.alt, False)
+        listener._on_release(Key.cmd, False)
+
+        # 2. Test Option+1 on macOS (dead-key produces '¡', vk=18)
+        listener._on_press(Key.cmd, False)
+        listener._on_press(Key.alt, False)
+        listener._on_press(KeyCode.from_char('¡', vk=18), False)
+        listener._on_release(KeyCode.from_char('¡', vk=18), False)
+        listener._on_release(Key.alt, False)
+        listener._on_release(Key.cmd, False)
+
+        # 3. Test Option+2 on macOS (dead-key produces '™', vk=19)
+        listener._on_press(Key.cmd, False)
+        listener._on_press(Key.alt, False)
+        listener._on_press(KeyCode.from_char('™', vk=19), False)
+        listener._on_release(KeyCode.from_char('™', vk=19), False)
+        listener._on_release(Key.alt, False)
+        listener._on_release(Key.cmd, False)
+
+        # 4. Test Option+S on macOS (dead-key produces 'ß', vk=1)
+        listener._on_press(Key.cmd, False)
+        listener._on_press(Key.alt, False)
+        listener._on_press(KeyCode.from_char('ß', vk=1), False)
+        listener._on_release(KeyCode.from_char('ß', vk=1), False)
+        listener._on_release(Key.alt, False)
+        listener._on_release(Key.cmd, False)
+
+        self.assertEqual(triggered, ['paste_topic', 'paste_a', 'paste_b', 'submit'])
+
 
 if __name__ == "__main__":
     unittest.main()
