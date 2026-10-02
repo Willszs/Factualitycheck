@@ -103,6 +103,19 @@ def load_config() -> dict:
     return {}
 
 
+def save_config(config: dict) -> bool:
+    """Persists updated configuration to config.json."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(base_dir, "config.json")
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save config.json: {e}")
+        return False
+
+
 class FactualityApp:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -112,6 +125,7 @@ class FactualityApp:
 
         # Load configurations & initialize backend engines
         self.config = load_config()
+        self.enable_notifications = bool(self.config.get("enable_notifications", True))
         self.evaluator = FactualityEvaluator(self.config)
         self.notifier = Notifier(self.config)
 
@@ -327,6 +341,23 @@ class FactualityApp:
             command=self.on_submit_eval,
         )
         self.btn_submit.pack(side=tk.RIGHT)
+
+        # Toggle switch for desktop popup notifications
+        self.var_notify = tk.BooleanVar(value=self.enable_notifications)
+        self.chk_notify = tk.Checkbutton(
+            bottom_bar,
+            text="🔔 桌面弹窗提醒",
+            variable=self.var_notify,
+            command=self._on_toggle_notifications,
+            font=("SF Pro Text", 11),
+            bg=self.bg_color,
+            fg=self.text_color,
+            activebackground=self.bg_color,
+            selectcolor=self.card_bg,
+            cursor="pointinghand",
+            padx=6,
+        )
+        self.chk_notify.pack(side=tk.RIGHT, padx=(0, 16))
 
         # Keyboard shortcuts (dual-layer: both Cmd+Return and Option+Command bindings)
         self.root.bind("<Command-Return>", lambda event: self.on_submit_eval())
@@ -561,8 +592,19 @@ class FactualityApp:
                 pass
         threading.Thread(target=_play, daemon=True).start()
 
+    def _on_toggle_notifications(self):
+        enabled = self.var_notify.get()
+        self.enable_notifications = enabled
+        self.config["enable_notifications"] = enabled
+        save_config(self.config)
+        status_text = "🔔 桌面弹窗提醒已开启" if enabled else "🔕 桌面弹窗提醒已关闭（静音免打扰）"
+        self._set_status_temp(status_text, duration_ms=2500, fg="#1e8e3e" if enabled else "#5f6368")
+        logger.info(f"Desktop popup notifications toggled: {enabled}")
+
     def _notify_macos(self, title: str, message: str):
-        """Dispatches a lightweight macOS system notification."""
+        """Dispatches a lightweight macOS system notification if enabled."""
+        if not getattr(self, "enable_notifications", True):
+            return
         def _notify():
             try:
                 clean_title = title.replace('"', '\\"')

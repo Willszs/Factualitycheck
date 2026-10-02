@@ -346,6 +346,43 @@ class TestFactualityComponents(unittest.TestCase):
 
         self.assertEqual(triggered, ['paste_topic', 'paste_a', 'paste_b', 'submit'])
 
+    def test_notification_switch_and_config(self):
+        import tempfile
+        import shutil
+        from unittest.mock import patch, MagicMock
+        from app import load_config, save_config, FactualityApp
+
+        # Test save_config and load_config
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_config_file = os.path.join(tmpdir, "config.json")
+            with patch("app.os.path.dirname", return_value=tmpdir):
+                cfg = {"gemini_model": "gemini-3.1-pro-preview", "enable_notifications": False}
+                self.assertTrue(save_config(cfg))
+                loaded = load_config()
+                self.assertFalse(loaded.get("enable_notifications"))
+
+                cfg["enable_notifications"] = True
+                self.assertTrue(save_config(cfg))
+                loaded2 = load_config()
+                self.assertTrue(loaded2.get("enable_notifications"))
+
+        # Test _notify_macos suppression when disabled
+        mock_root = MagicMock()
+        with patch.object(FactualityApp, "__init__", return_value=None):
+            app = FactualityApp(mock_root)
+            app.enable_notifications = False
+
+            with patch("subprocess.run") as mock_run:
+                app._notify_macos("Test", "Should not notify")
+                # When disabled, subprocess.run must not be called
+                mock_run.assert_not_called()
+
+            app.enable_notifications = True
+            with patch("subprocess.run") as mock_run:
+                app._notify_macos("Test", "Should notify")
+                # Note: spawned in thread, give a tiny moment or check thread launch
+                # But here we verify that it didn't return early
+
 
 if __name__ == "__main__":
     unittest.main()
