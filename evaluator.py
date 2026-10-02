@@ -277,6 +277,12 @@ class FactualityEvaluator:
     def _truncate_to_word_limit(paragraph: str, max_words: int = 150) -> str:
         words = paragraph.split()
         if len(words) <= max_words:
+            # If paragraph ends abruptly without sentence-ending punctuation (cut off mid-sentence),
+            # trim to the last complete sentence to avoid awkward broken phrases.
+            if paragraph and not re.search(r'[\.\!\?]["\']?$', paragraph):
+                match = re.search(r'^(.*[\.\!\?]["\']?)\s+[^\.\!\?]*$', paragraph)
+                if match and len(match.group(1).split()) >= 30:
+                    return match.group(1).strip()
             return paragraph
         sub_words = words[:max_words]
         sub_text = " ".join(sub_words)
@@ -304,10 +310,14 @@ class FactualityEvaluator:
                 config=types.GenerateContentConfig(
                     system_instruction=prompt,
                     temperature=0.1,
-                    max_output_tokens=8192,
+                    max_output_tokens=16384,
                 ),
             )
             if response and response.text:
+                if response.candidates and response.candidates[0].finish_reason:
+                    f_reason = str(response.candidates[0].finish_reason)
+                    if "MAX_TOKENS" in f_reason:
+                        logger.warning(f"Model {model_name} output hit MAX_TOKENS limit! Output may be cut off.")
                 logger.info(f"Evaluation completed successfully via google-genai SDK ({model_name}).")
                 return response.text.strip(), ""
         except Exception as e:
@@ -334,7 +344,7 @@ class FactualityEvaluator:
             ],
             "generationConfig": {
                 "temperature": 0.1,
-                "maxOutputTokens": 8192
+                "maxOutputTokens": 16384
             }
         }
 
