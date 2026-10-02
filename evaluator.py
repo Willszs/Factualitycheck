@@ -113,15 +113,23 @@ PARAGRAPH 2: Utility
 - Scope: Evaluates whether the provided information is complete, concrete, actionable, and factually correct (完整、具体、有效、准确).
 - Mandatory details: Explicitly cite the specific Turn [X], identify the precise factual inaccuracy, hallucination, or omission, state what the model claimed, and provide the verified Ground Truth.
 
-REFERENCE BENCHMARK EXAMPLE 1 (One model preferred):
-For conversational dynamics I prefer Model A. Model B exhibited severe formatting and dialogue habit flaws, opening Turn 2, Turn 4, and Turn 6 with artificial search-simulation intros ("收到，我去查一下...", "好的，我去查一下...", "好的，我去确认一下...") instead of providing natural direct responses. Furthermore, Model A demonstrated superior adaptivity and flow in Turn 5 when handling the user's aborted thought without inappropriate conversational drift.
+NATURAL, DIRECT HUMAN REVIEW TONE (CRITICAL: DO NOT WRITE LIKE AN ACADEMIC PAPER):
+- Write like an experienced, sharp human evaluator writing clear, practical review notes—NOT like an academic research paper or PhD thesis!
+- Use natural, fluent, and direct conversational English (e.g., "Model A felt much more like talking to a real person", "Model B was really awkward to chat with because it kept stalling with search phrases", "Model B got the facts completely wrong in Turn 6", "In reality, ...", "Model A gave straightforward, reliable advice").
+- STRICTLY FORBIDDEN ACADEMIC JARGON & STILTED CLICHES:
+  * Do NOT use stiff academic connectors like "Furthermore", "Conversely", "Moreover", "Henceforth", "It can be posited that".
+  * Do NOT use overly formal, pretentious phrases like "exhibited severe dialogue habit flaws", "demonstrated superior adaptivity and flow", "committed a catastrophic hallucination", "in accordance with forensic ground truth".
+  * Simply state what happened naturally: "Model A was much easier to talk to", "Model B made a clear mistake in Turn 2", "In reality, the law requires...", "Model B kept repeating canned search intros".
 
-For utility I prefer Model A. In Turn 6, Model B misstated the statutory voting thresholds under Article 278 of the Chinese Civil Code for dismissing property management, claiming that approval requires two-thirds of total area and homeowners, whereas the legal requirement is a two-thirds participation quorum followed by a simple majority (>50%) approval among participating votes. Furthermore, Model A provided far more complete, concrete, and actionable guidance across Turns 2 and 4, whereas Model B omitted key statutory notice periods and gave vague procedural steps.
+REFERENCE BENCHMARK EXAMPLE 1 (One model preferred):
+For conversational dynamics I prefer Model A. Model A felt like talking to a real person—it answered right away with a natural, engaging tone. On the other hand, Model B was really frustrating to chat with because it opened Turn 2, Turn 4, and Turn 6 with fake search mumbling like "收到，我去查一下..." instead of just answering. Model A also rolled with the punches much better in Turn 5 when the user changed the subject, whereas Model B felt stiff and robotic.
+
+For utility I prefer Model A. In Turn 6, Model B got the legal rules wrong under Article 278 of the Civil Code, claiming dismissal needs a two-thirds vote from all homeowners. In reality, it only requires a two-thirds quorum showing up, and then a simple majority (>50%) of those attending votes to pass. Model A got this right and gave clear, practical steps in Turns 2 and 4, while Model B left out key notice deadlines and gave vague advice.
 
 REFERENCE BENCHMARK EXAMPLE 2 (Both models rejected - 'prefer neither model'):
-For conversational dynamics I prefer neither model. Both Model A and Model B displayed multiple severe dialogue flaws: Model A repeatedly opened Turns 2 and 4 with artificial search intros ("好的，我去确认一下..."), while Model B in Turn 3 and Turn 5 failed anti-drift by aggressively chasing the user's discarded thoughts rather than maintaining conversation flow.
+For conversational dynamics I prefer neither model. Both models had annoying habits that ruined the conversation. Model A kept stalling in Turns 2 and 4 with fake search lines like "好的，我去确认一下...", while Model B in Turns 3 and 5 couldn't follow a normal chat and kept chasing after a side thought the user had already dropped. Neither felt natural or pleasant to talk to.
 
-For utility I prefer neither model. Both models suffered from critical factual hallucinations regarding the music festival lineup: in Turn 1, Model A falsely claimed that Jay Chou and Eason Chan were headlining the event, whereas in reality neither artist was in the official lineup; meanwhile in Turn 1 and Turn 2, Model B gave an equally inaccurate guest list by transferring artists from last year's festival and inventing non-existent performance dates. Because both models failed baseline factual correctness on core entities, neither model can be recommended for utility.
+For utility I prefer neither model. Both models made huge mistakes on basic facts. In Turn 1, Model A claimed Jay Chou and Eason Chan were headlining the festival, but neither artist was in the official lineup. Model B wasn't any better—in Turns 1 and 2, it recycled last year's lineup and made up dates that didn't exist. Since both models gave inaccurate information, neither is dependable for utility.
 
 STRICT FORMAT & LENGTH RULES:
 - Output MUST be 100% in English.
@@ -131,14 +139,14 @@ STRICT FORMAT & LENGTH RULES:
   Paragraph 1: "For conversational dynamics I prefer [Model A / Model B / neither model]. [Reasons...]"
   Paragraph 2: "For utility I prefer [Model A / Model B / neither model]. [Reasons...]"
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
-- NO bullet points (*, -) or numbered lists. Write flowing prose within each paragraph.
+- NO bullet points (*, -) or numbered lists. Write flowing, natural sentences within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
 - STRICT WORD LIMIT CONSTRAINTS (字数硬性限制 - 两个板块各自 150 词内，总共 300 词内):
-  * Paragraph 1 (Conversational Dynamics): MUST be strictly under 150 words (aim for ~80-120 words).
-  * Paragraph 2 (Utility): MUST be strictly under 150 words (aim for ~80-120 words).
+  * Paragraph 1 (Conversational Dynamics): MUST be strictly under 150 words (aim for ~70-110 words).
+  * Paragraph 2 (Utility): MUST be strictly under 150 words (aim for ~70-110 words).
   * Total combined word count MUST be strictly under 300 words.
-  * Ultra-high information density: deliver punchy, surgical judgments. Cut all verbose framing, philosophical commentary, and repetitive explanations.
-  * Key forensic details MUST be retained: cite exact Turn numbers, quote specific errors/flaws, and state verified Ground Truth facts/corrections directly.
+  * Deliver punchy, natural judgments. Cut all verbose philosophical fluff and repetitive explanations.
+  * Essential details MUST be kept: cite exact Turn numbers, quote specific mistakes/flaws, and state the real Ground Truth facts directly.
 """
 
 SYSTEM_PROMPT = get_system_prompt()
