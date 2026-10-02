@@ -278,6 +278,26 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertIn("现在已经可以开始预定", report)
         self.assertIn("PRE-AUDIT FORENSIC EVIDENCE", report)
 
+    def test_human_typer_features(self):
+        from typer import HumanTyper, QWERTY_NEIGHBORS
+        # 1. Test QWERTY neighbors map
+        self.assertIn("w", QWERTY_NEIGHBORS["e"])
+        self.assertIn("r", QWERTY_NEIGHBORS["e"])
+        self.assertIn("s", QWERTY_NEIGHBORS["a"])
+
+        # 2. Test adjacent typo generator
+        typo_e = HumanTyper._get_adjacent_typo("e")
+        self.assertIn(typo_e.lower(), QWERTY_NEIGHBORS["e"])
+
+        # 3. Test uppercase preservation / handling
+        typo_A = HumanTyper._get_adjacent_typo("A")
+        self.assertIn(typo_A.lower(), QWERTY_NEIGHBORS["a"])
+
+        # 4. Test empty input handling
+        success, msg = HumanTyper.type_like_human("", countdown_secs=0)
+        self.assertFalse(success)
+        self.assertEqual(msg, "待输入文本为空")
+
 
 if __name__ == "__main__":
     unittest.main()
