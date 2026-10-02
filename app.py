@@ -13,8 +13,8 @@ import logging
 import threading
 import subprocess
 import tkinter as tk
-from tkinter import ttk, messagebox
 from datetime import datetime
+from typing import Optional
 
 from evaluator import FactualityEvaluator
 from notifier import Notifier
@@ -366,9 +366,9 @@ class FactualityApp:
         widget.bind("<Button-3>", show_menu)
         widget.bind("<Control-Button-1>", show_menu)
 
-    def on_submit_topic(self):
+    def on_submit_topic(self, custom_topic: Optional[str] = None):
         """Immediately captures text in 粘贴3, clears input, and asks duration on Telegram."""
-        topic = self.txt_topic.get().strip()
+        topic = (custom_topic or self.txt_topic.get()).strip()
         if not topic:
             self._set_status_temp("请先在【粘贴3】输入内容", duration_ms=2500, fg="#d93025")
             return
@@ -528,11 +528,13 @@ class FactualityApp:
 
     def _hotkey_paste_a(self):
         clip = self._get_clipboard_text().strip()
-        if not clip:
-            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+        existing = self.txt_a.get("1.0", tk.END).strip()
+        target_text = clip or existing
+        if not target_text:
+            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025"))
             self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
-        self.root.after(0, lambda: self._apply_paste_a(clip))
+        self.root.after(0, lambda: self._apply_paste_a(target_text))
 
     def _apply_paste_a(self, text: str):
         self.txt_a.delete("1.0", tk.END)
@@ -553,11 +555,13 @@ class FactualityApp:
 
     def _hotkey_paste_b(self):
         clip = self._get_clipboard_text().strip()
-        if not clip:
-            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+        existing = self.txt_b.get("1.0", tk.END).strip()
+        target_text = clip or existing
+        if not target_text:
+            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025"))
             self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
-        self.root.after(0, lambda: self._apply_paste_b(clip))
+        self.root.after(0, lambda: self._apply_paste_b(target_text))
 
     def _apply_paste_b(self, text: str):
         self.txt_b.delete("1.0", tk.END)
@@ -578,21 +582,22 @@ class FactualityApp:
 
     def _hotkey_paste_topic(self):
         clip = self._get_clipboard_text().strip()
-        if not clip:
-            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板为空，请先复制内容", duration_ms=2500, fg="#d93025"))
-            self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
+        existing = self.txt_topic.get().strip()
+        target_text = clip or existing
+        if not target_text:
+            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板和输入框均为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._notify_macos("Factuality 提示", "剪贴板与输入框均为空，请先在其他应用复制内容！")
             return
-        self.root.after(0, lambda: self._apply_paste_topic(clip))
+        self.root.after(0, lambda: self._apply_paste_topic(target_text))
 
     def _apply_paste_topic(self, text: str):
-        self.txt_topic.delete(0, tk.END)
-        self.txt_topic.insert(0, text)
         clean_topic = text.strip()
         if clean_topic:
+            self.txt_topic.delete(0, tk.END)
             self._set_status_temp("已存入主题，自动发送中...", duration_ms=2500, fg="#1e8e3e")
             self._play_feedback_sound("Glass")
             self._notify_macos("Factuality 自动发送", "已自动获取剪贴板主题并发送至 Telegram 机器人！")
-            self.on_submit_topic()
+            self.on_submit_topic(custom_topic=clean_topic)
 
     def _hotkey_submit_eval(self):
         self.root.after(0, self._apply_submit_eval)
