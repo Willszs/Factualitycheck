@@ -73,7 +73,7 @@ class DialogueAuditor:
 
             # 3. Unprompted English search-simulation intros
             m_en_intro = re.search(
-                r"^(?:Just pulling|Let\'s check|One moment|Looking into|Let me check|Ooooh|Checking|Hold on)",
+                r"^(?:Just pulling|Let\'s check|One moment|Looking into|Let me check|Ooooh|Checking|Hold on|Hmm|Oof|Yeah, it\'s|One sec)",
                 first_line,
                 re.IGNORECASE,
             )
@@ -85,13 +85,13 @@ class DialogueAuditor:
 
             # 4. Artificial Chinese search-simulation intros
             m_cn_intro = re.search(
-                r"^(?:国际贸易啊？|哦关税变化？|让我查一下|关于这个|嗯)?[，,。.\s]*(?:嗯|哦|好的|收到|等一下)[，,。.\s]*(?:等一下|查一下|我去查|我来帮你查|我去确认|确认一下|搜索一下|查询一下)",
-                first_line,
+                r"(?:我来看看哈|我来看看|我看看|等我一下|帮你在查资料|帮你查资料|我帮你捋一捋|让我查一下|查一下|我去查|我来帮你查|我去确认|确认一下|搜索一下|查询一下)",
+                content[:60],
             )
             if m_cn_intro:
-                snippet = first_line[:30].replace("\n", " ")
+                snippet = content[:35].replace("\n", " ")
                 violations.append(
-                    f"Turn {num}: {model_name} opened with artificial search-simulation delay intro ('{snippet}...')."
+                    f"Turn {num}: {model_name} opened with artificial search-simulation delay filler ('{snippet}...')."
                 )
 
             # 5. Temporal & Pre-order status claims
@@ -154,24 +154,24 @@ class DialogueAuditor:
 
         report_lines = [
             "=== PRE-AUDIT FORENSIC EVIDENCE (CODE-VERIFIED STATIC ANALYSIS) ===",
-            "Deterministic static code analysis has verified the following hard facts from the transcripts:"
+            "Deterministic static code analysis has identified the following evidence from the transcripts:"
         ]
 
         # Conversational Dynamics Findings
-        report_lines.append("\n[Conversational Dynamics Violations (100% Code Verified)]:")
+        report_lines.append("\n[Conversational Dynamics Violations (Pre-Audit Scanned)]:")
         if audit_a["violations"]:
             report_lines.append("• Model A Detected Flaws:")
             for v in audit_a["violations"]:
                 report_lines.append(f"  - {v}")
         else:
-            report_lines.append("• Model A: No mechanical search fillers, dead-air pauses, or language switching detected.")
+            report_lines.append("• Model A: No explicit keyword pattern triggered in initial scan (LLM must independently scrutinize all turns for subtle search fillers or tone disruptions).")
 
         if audit_b["violations"]:
             report_lines.append("• Model B Detected Flaws:")
             for v in audit_b["violations"]:
                 report_lines.append(f"  - {v}")
         else:
-            report_lines.append("• Model B: No mechanical search fillers, dead-air pauses, or language switching detected.")
+            report_lines.append("• Model B: No explicit keyword pattern triggered in initial scan (LLM must independently scrutinize all turns for subtle search fillers or tone disruptions).")
 
         # Temporal & Pre-order Claims
         if has_temporal:
@@ -196,10 +196,12 @@ class DialogueAuditor:
         report_lines.append(
             "\n[AUDITOR EXECUTION DIRECTIVE]:\n"
             "1. You MUST incorporate the specific violations and turn citations above directly into your evaluation paragraphs.\n"
-            "2. If BOTH models have multiple conversational dynamics flaws (e.g. Model A had fillers/English, and Model B had dead-air/English),\n"
-            "   you MUST rule 'For conversational dynamics I prefer neither model' and cite both models' specific turns!\n"
-            "3. If a model made a false temporal/pre-order claim, you MUST cite its turn and penalize it under Utility.\n"
-            "4. NEVER falsely accuse accurate models of inventing real statutes or announced products."
+            "2. If BOTH models exhibit conversational dynamics flaws (e.g. Model A used unprompted English / fillers, and Model B used search fillers like '我来看看哈' / '等我一下' / '我看看'),\n"
+            "   you MUST rule 'For conversational dynamics I prefer neither model' and cite both models' specific turns! Never praise a model that used search-simulation fillers!\n"
+            "3. Comprehensive Utility Audit: Audit ALL turns across the entire dialogue. If a model makes multiple factual errors across different turns (e.g. layoff figures + severance rules + industry hiring claims), you MUST cite ALL distinct major errors with their turn numbers and real-world Ground Truth!\n"
+            "4. Also evaluate the practical quality of advice: penalize reckless, intrusive, or professionally harmful advice (e.g. calling an employee's supervisor or HR during layoffs).\n"
+            "5. If BOTH models have severe factual or utility errors, rule 'For utility I prefer neither model.'\n"
+            "6. NEVER falsely accuse accurate models of inventing real statutes or announced products."
         )
 
         return "\n".join(report_lines)

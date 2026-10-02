@@ -111,7 +111,12 @@ PARAGRAPH 1: Conversational Dynamics
 PARAGRAPH 2: Utility
 - MUST start with: "For utility I prefer [Model A / Model B / neither model]."
 - Scope: Evaluates whether the provided information is complete, concrete, actionable, and factually correct (完整、具体、有效、准确).
-- Mandatory details: Explicitly cite the specific Turn [X], identify the precise factual inaccuracy, hallucination, or omission, state what the model claimed, and provide the verified Ground Truth.
+- COMPREHENSIVE TURN-BY-TURN AUDIT (全轮次深度事实性与建议审计):
+  * For multi-turn dialogues, do NOT stop at the first factual mistake you find. You MUST audit the ENTIRE dialogue across all turns.
+  * Rigorously cross-check every claim: dates, years, numbers/percentages, legal statutes (WARN Act, severance agreements, COBRA), and industry employment figures.
+  * If a model makes multiple factual errors across different turns (e.g. Turn 2 layoff figures + Turn 8 severance timeline + Turn 12 industry hiring claims), you MUST cite ALL distinct major errors with their turn numbers and real-world Ground Truth!
+  * Also evaluate the practical safety and professionalism of advice: penalize reckless, intrusive, or professionally harmful guidance (e.g. advising family members to directly contact an employee's corporate supervisor or HR during sensitive layoffs).
+  * If BOTH models have severe factual errors or reckless advice, rule "For utility I prefer neither model."
 
 NATURAL, DIRECT HUMAN REVIEW TONE (CRITICAL: DO NOT WRITE LIKE AN ACADEMIC PAPER):
 - Write like an experienced, sharp human evaluator writing clear, practical review notes—NOT like an academic research paper or PhD thesis!
@@ -141,12 +146,11 @@ STRICT FORMAT & LENGTH RULES:
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
 - NO bullet points (*, -) or numbered lists. Write flowing, natural sentences within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
-- STRICT WORD LIMIT CONSTRAINTS (字数硬性限制 - 两个板块各自 150 词内，总共 300 词内):
-  * Paragraph 1 (Conversational Dynamics): MUST be strictly under 150 words (aim for ~70-110 words).
-  * Paragraph 2 (Utility): MUST be strictly under 150 words (aim for ~70-110 words).
-  * Total combined word count MUST be strictly under 300 words.
-  * Deliver punchy, natural judgments. Cut all verbose philosophical fluff and repetitive explanations.
-  * Essential details MUST be kept: cite exact Turn numbers, quote specific mistakes/flaws, and state the real Ground Truth facts directly.
+- WORD BUDGET CONSTRAINTS:
+  * Paragraph 1 (Conversational Dynamics): aim for ~100-150 words (strictly under 180 words).
+  * Paragraph 2 (Utility): aim for ~150-220 words (strictly under 250 words) to ensure all critical factual errors, legal mistakes, and reckless guidance across the entire dialogue are fully exposed with verified Ground Truth.
+  * Total combined word count strictly under 420 words.
+  * Deliver punchy, natural judgments. Cut verbose philosophical fluff, but KEEP all exact turn numbers, quotes of mistakes, and verified Ground Truth facts.
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -257,15 +261,15 @@ class FactualityEvaluator:
         p1 = re.sub(r"[\r\n]+", " ", p1)
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
-        # Truncate each paragraph to strictly under 150 words if necessary
-        p1 = cls._truncate_to_word_limit(p1, max_words=150)
+        # Truncate each paragraph to strictly under word budget if necessary
+        p1 = cls._truncate_to_word_limit(p1, max_words=180)
 
         # Normalize internal spacing of paragraph 2
         if p2:
             p2 = re.sub(r"###.*$", "", p2).strip()
             p2 = re.sub(r"[\r\n]+", " ", p2)
             p2 = re.sub(r"\s{2,}", " ", p2).strip()
-            p2 = cls._truncate_to_word_limit(p2, max_words=150)
+            p2 = cls._truncate_to_word_limit(p2, max_words=260)
             return f"{p1}\n\n{p2}"
         return p1
 
