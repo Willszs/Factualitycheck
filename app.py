@@ -401,12 +401,14 @@ class FactualityApp:
         self.txt_b.bind("<<Paste>>", lambda e: self.root.after(100, self._check_and_auto_send_eval))
 
     def _check_and_auto_send_topic(self):
-        topic = self.txt_topic.get().strip()
+        clip = self._get_clipboard_text().strip()
+        # If clipboard contains multi-line content (e.g. Skills tested), preserve it over Entry truncation
+        topic = clip if (clip and ("\n" in clip or "skills" in clip.lower() or "技能" in clip)) else self.txt_topic.get().strip()
         if topic:
             self._set_status_temp("已存入主题，自动发送中...", duration_ms=2500, fg="#1e8e3e")
             self._play_feedback_sound("Glass")
             self._notify_macos("Factuality 自动发送", "检测到已粘贴主题，已自动发送至 Telegram 机器人！")
-            self.on_submit_topic()
+            self.on_submit_topic(custom_topic=topic)
 
     def _check_and_auto_send_eval(self):
         content_a = self.txt_a.get("1.0", tk.END).strip()

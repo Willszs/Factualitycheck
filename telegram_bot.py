@@ -80,9 +80,16 @@ class TelegramBotService:
         self.total_rounds = 3
         self.duration_desc = ""
 
+        core_topic, skills_tested = QuestionGenerator.parse_topic_and_skills(topic)
+        skills_html = ""
+        if skills_tested:
+            badges = " | ".join([f"<code>{html.escape(s)}</code>" for s in skills_tested])
+            skills_html = f"🎯 <b>专项考察技能 (Skills Tested)：</b>\n{badges}\n\n"
+
         prompt_msg = (
             f"🎯 <b>收到新测评主题：</b>\n"
-            f"<blockquote>{html.escape(topic)}</blockquote>\n\n"
+            f"<blockquote>{html.escape(core_topic)}</blockquote>\n\n"
+            f"{skills_html}"
             f"请直接回复这段对话大概需要持续<b>多少轮</b>或<b>多长时间</b>？\n"
             f"（例如直接回复：<code>5轮</code>、<code>10分钟</code>、<code>3轮对比</code>）"
         )
@@ -239,10 +246,11 @@ class TelegramBotService:
         self.state = "INTERACTIVE_QUESTIONS"
         self.current_round = 1
 
+        core_topic, _ = QuestionGenerator.parse_topic_and_skills(self.topic)
         self._send_chat_action("typing")
         self._send_message(
             f"✅ 收到！针对 <b>{self.duration_desc}</b> 场景，已规划 <b>{self.total_rounds} 轮</b>地道口语提问（每轮仅需 5-10 秒随口读出）。\n"
-            f"正在针对【{html.escape(self.topic)}】设计第 1 轮口语提问..."
+            f"正在针对【{html.escape(core_topic)}】设计第 1 轮口语提问..."
         )
 
         q_text = self.generator.generate_question(

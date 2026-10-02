@@ -25,6 +25,7 @@ class SearchGrounding:
         "新闻", "热点", "头条", "事件", "时事",
         "比赛", "球队", "对决", "比分", "胜负", "欧冠", "英超", "NBA", "CBA", "世界杯", "联赛", "赛程",
         "电影", "上映", "院线", "票房", "剧", "音乐节", "演唱会", "阵容", "演出", "展演",
+        "疾病", "病毒", "疫情", "感染", "传染", "呼吸道", "流感", "新冠", "支原体", "登革热", "猴痘", "疫苗", "航班", "机舱",
         "最新", "刚发布", "刚刚", "最近", "近期", "昨天", "今天", "本周", "这周末",
         "关税", "贸易", "政策", "条款", "法规", "法案", "规定", "税率", "外贸", "豁免",
     ]
@@ -63,19 +64,29 @@ class SearchGrounding:
             else:
                 queries.append(f"最新体育比赛 焦点对决 {now_year}")
 
-        # 3. News & Events
+        # 3. Public Health, Epidemics & Travel Advisories
+        elif any(w in topic for w in ["疾病", "病毒", "疫情", "呼吸道", "流感", "传染", "感染", "支原体"]):
+            if any(w in topic for w in ["航班", "飞机", "旅行", "出行", "乘机", "机场"]):
+                queries.append(f"最新呼吸道疾病 航班 乘机 风险 {now_year}")
+                queries.append(f"最新呼吸道传染病 疫情 疾控通报 {now_year}")
+            else:
+                queries.append(f"最新呼吸道疾病 传染病 疫情 疾控通报 {now_year}")
+                queries.append(f"最新病毒 感染 症状 防控 {now_year}")
+
+        # 4. News & Events
         elif any(w in topic for w in ["新闻", "热点", "时事", "事件"]):
             queries.append(f"最新科技新闻热点 {now_year}")
             queries.append(f"最新国内外要闻 {now_year}")
 
-        # 4. Movies, Theater, Festivals
+        # 5. Movies, Theater, Festivals
         elif any(w in topic for w in ["电影", "上映", "院线", "票房"]):
             queries.append(f"最新上映电影 口碑 票房 {now_year}")
         elif any(w in topic for w in ["音乐节", "演唱会", "阵容"]):
             queries.append(f"最新音乐节 阵容 官宣 {now_year}")
 
-        # Fallback: clean the topic itself into a search query
-        clean_topic = re.sub(r"[，。！？、“”《》\(\)（）\n\r]+", " ", topic).strip()
+        # Fallback: clean the topic itself into a search query (strip benchmark metadata & Skills tested)
+        clean_topic = re.sub(r"(?i)(?:skills?\s+tested|skills?|测试技能|考察技能|测评技能|考核技能)[\s\S]*$", "", topic)
+        clean_topic = re.sub(r"[，。！？、“”《》\(\)（）\n\r]+", " ", clean_topic).strip()
         words = clean_topic.split()
         short_query = " ".join(words[:4])
         if short_query and short_query not in queries:

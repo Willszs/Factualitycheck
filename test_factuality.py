@@ -383,6 +383,42 @@ class TestFactualityComponents(unittest.TestCase):
                 # Note: spawned in thread, give a tiny moment or check thread launch
                 # But here we verify that it didn't return early
 
+    def test_parse_topic_and_skills(self):
+        from question_generator import QuestionGenerator
+        
+        # Test 1: User's exact format with newlines
+        raw_1 = """你看到有关新呼吸道疾病传播的新闻，你下周有航班——你应该要担心吗？
+
+Skills tested
+
+事实准确性
+校准式风险沟通
+共情"""
+        core_1, skills_1 = QuestionGenerator.parse_topic_and_skills(raw_1)
+        self.assertEqual(core_1, "你看到有关新呼吸道疾病传播的新闻，你下周有航班——你应该要担心吗？")
+        self.assertEqual(skills_1, ["事实准确性", "校准式风险沟通", "共情"])
+
+        # Test 2: Inline colon with commas
+        raw_2 = "你下周有航班。Skills tested: 事实准确性, 校准式风险沟通, 共情"
+        core_2, skills_2 = QuestionGenerator.parse_topic_and_skills(raw_2)
+        self.assertEqual(core_2, "你下周有航班。")
+        self.assertEqual(skills_2, ["事实准确性", "校准式风险沟通", "共情"])
+
+        # Test 3: Chinese keywords with bullet points
+        raw_3 = """关于消费电子新品
+考察技能：
+1. 事实准确性
+2. 逻辑严密性"""
+        core_3, skills_3 = QuestionGenerator.parse_topic_and_skills(raw_3)
+        self.assertEqual(core_3, "关于消费电子新品")
+        self.assertEqual(skills_3, ["事实准确性", "逻辑严密性"])
+
+        # Test 4: Plain topic without skills
+        raw_4 = "明朝万历十五年的历史事件"
+        core_4, skills_4 = QuestionGenerator.parse_topic_and_skills(raw_4)
+        self.assertEqual(core_4, "明朝万历十五年的历史事件")
+        self.assertEqual(skills_4, [])
+
 
 if __name__ == "__main__":
     unittest.main()

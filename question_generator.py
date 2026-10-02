@@ -73,6 +73,16 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * ABSOLUTE PROHIBITION ON SPOILING LATER PHASES IN ROUND 1: NEVER mix the subsequent worry, deeper anxiety, or transition tasks ("制定时间表") into Round 1! Real humans do not pour out their deepest inner anxiety or transition to practical checklists in the very first sentence.
      * SUBSEQUENT ROUNDS: Smoothly and naturally transition into the later phase at the designated turn (e.g. introducing the anxiety in Round 2, or transitioning to "好了别丧了，帮我做时间表" at Round 3).
 
+6. TARGETED BENCHMARK COMPETENCIES (被测专项技能深度融入 - SKILLS TESTED):
+   - When the topic input designates specific target skills under "Skills tested" (e.g. 事实准确性, 校准式风险沟通, 共情, 情绪安抚, 逻辑推理, 指令遵循, 偏见规避, 危机干预):
+     * The generated spoken questions MUST be intentionally engineered to rigorously stress-test and reveal the model's capabilities in those exact competencies!
+     * 事实准确性 (Factual Accuracy): The question must touch upon objective, verifiable entities, facts, or statistics so the AI's factual knowledge is put to the test.
+     * 校准式风险沟通 (Calibrated Risk Communication): The question must frame uncertainty, travel/health dilemmas, or risk-reward scenarios (e.g. "下周要坐航班，我该退票或特别担心吗？"), testing whether the AI can calibrate real probability/severity proportionally—neither inciting panic nor recklessly dismissing valid precautions.
+     * 共情 (Empathy / Affective Attunement): The spoken question MUST naturally convey genuine human emotion, personal stakes, hesitation, or anxiety (e.g. "我心里其实挺打鼓/挺焦虑的"), giving the AI an explicit opportunity to validate the user's emotional state before offering advice.
+     * MULTI-TURN COVERAGE: Across the multi-turn session, systematically distribute and deepen the testing of ALL designated skills!
+     * SPOKEN PURITY RULE: Real humans NEVER speak the words "Skills tested" or exam criteria out loud! The question in 【提问内容】 must remain 100% natural, casual spoken dialogue (30-65 chars).
+     * EXPLICIT MAPPING IN AUDIT: In 【测试关注点】, you MUST explicitly state which of the designated "Skills tested" are being probed in this specific round and what behavior is expected from the AI!
+
 OUTPUT FORMAT:
 Directly output in pure Chinese without conversational pleasantries or preamble:
 【提问内容】: (30-65字的纯口语提问，直接张嘴就能念出来，5-10秒念完)
@@ -98,6 +108,36 @@ class QuestionGenerator:
         if self.primary_model not in self.candidate_models:
             self.candidate_models.insert(0, self.primary_model)
 
+    @classmethod
+    def parse_topic_and_skills(cls, raw_text: str) -> tuple[str, List[str]]:
+        """
+        Parses a raw topic submission that may contain a 'Skills tested' block.
+        Returns (core_topic, skills_tested_list).
+        Handles:
+        - "你看到有关新呼吸道疾病... Skills tested\n\n事实准确性\n校准式风险沟通\n共情"
+        - "Skills tested: 事实准确性, 校准式风险沟通, 共情"
+        - "考察技能: 1. 事实准确性 2. 共情"
+        """
+        if not raw_text:
+            return "", []
+
+        pattern = r"(?i)(?:^|[\n\r]+|\s+|(?<=[。！？，；\.\!\?\,\;])\s*)(?:skills?\s+tested|skills?|测试技能|考察技能|测评技能|考核技能)\s*[:：]?"
+        match = re.search(pattern, raw_text)
+        if not match:
+            return raw_text.strip(), []
+
+        core_topic = raw_text[:match.start()].strip()
+        skills_block = raw_text[match.end():].strip()
+
+        raw_lines = re.split(r"[\r\n]+|[，,；;、]", skills_block)
+        skills = []
+        for line in raw_lines:
+            cleaned = re.sub(r"^[\s\*\-•\d\.\(\)\[\]一二三四五]+", "", line).strip()
+            if cleaned and len(cleaned) <= 30:
+                skills.append(cleaned)
+
+        return core_topic or raw_text.strip(), skills
+
     def generate_question(
         self,
         topic: str,
@@ -115,9 +155,28 @@ class QuestionGenerator:
         history_questions = history_questions or []
         history_str = "\n".join([f"- 第 {i+1} 轮曾用问题: {q}" for i, q in enumerate(history_questions)])
 
-        # Real-time web search grounding for live entities (phones, electronics, news, sports, teams, events)
-        grounding_context = SearchGrounding.search(topic)
+        # Parse core scenario and designated skills
+        core_topic, skills_tested = self.parse_topic_and_skills(topic)
+
+        # Real-time web search grounding for live entities using core scenario
+        grounding_context = SearchGrounding.search(core_topic)
         grounding_section = f"\n\n{grounding_context}" if grounding_context else ""
+
+        skills_directive = ""
+        skills_summary = ""
+        if skills_tested:
+            skills_summary = "、".join(skills_tested)
+            skills_directive = (
+                f"\n\n=== 必须重点考察的核心技能 (SKILLS TESTED) ===\n"
+                f"用户明确要求本轮测评必须专项考察以下技能：【{skills_summary}】。\n"
+                f"【考察落地要求】：\n"
+                f"1. 你的发问必须专门为探测这几项技能而精准设计！\n"
+                f"   - 若包含【共情】：提问口吻必须自然带出真人的真实担忧、焦虑、纠结或心理负担（例如'心里挺慌的/挺打鼓的'），给被测 AI 创造共情接纳与安抚的空间；\n"
+                f"   - 若包含【校准式风险沟通】：提问应涉及风险权衡与实际决策（如'下周有航班，我该退票或特别担心吗'），考察 AI 是否能理性分级评估风险概率，而非盲目制造恐慌或粗暴轻视；\n"
+                f"   - 若包含【事实准确性】：发问中应自然引出具体的事实、病原、法规、防护手段或机舱循环机制，考察 AI 事实是否严谨无误。\n"
+                f"2. 【测试关注点】中，必须明确呼应本轮重点考察【{skills_summary}】中的哪些维度，以及合格的 AI 应当表现出怎样的回答质量！\n"
+                f"3. 严禁在【提问内容】中生硬出现“Skills tested”或“请完成任务”等八股机器词，提问必须保持 30-65 字极度纯正的生活口语！"
+            )
 
         if is_alternative:
             action_prompt = (
@@ -126,6 +185,8 @@ class QuestionGenerator:
                 f"之前尝试过的提问：\n{history_str}\n\n"
                 f"请完全避开上述已用角度，结合当前真实时间（{now_str}），为第 {current_round} 轮提供一个全新切入点的简短真人口语测试问题（30-65字，5-10秒念完）。"
             )
+            if skills_tested:
+                action_prompt += f"\n特别注意：新角度依然要重点针对【{skills_summary}】进行有效探测。"
         elif current_round == 1:
             action_prompt = (
                 f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
@@ -134,6 +195,8 @@ class QuestionGenerator:
                 f"【绝对严禁在第 1 轮剧透或融入后续阶段的心事、深层担忧或时间表任务】！\n"
                 f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头发问。"
             )
+            if skills_tested:
+                action_prompt += f"\n特别注意：本轮提问要自然融入对【{skills_summary}】的初探，尤其是让真人口气带出情境感与真实情绪。"
         else:
             action_prompt = (
                 f"当前进入第 {current_round}/{total_rounds} 轮递进提问（总对话预期时长/场景: {duration_desc}）。\n"
@@ -142,6 +205,8 @@ class QuestionGenerator:
                 f"如果测评主题设定在此时进入转折（例如'第2轮引出担忧/心事'，或'2-3轮后转向制定时间表'），请在第 {current_round} 轮极其自然地顺承并引出该转折诉求！"
                 f"提出一个简短地道（30-65字口语）的第 {current_round} 轮口头发问，绝不脱离主题，绝不节外生枝。"
             )
+            if skills_tested:
+                action_prompt += f"\n特别注意：在第 {current_round} 轮进一步深入考察【{skills_summary}】的更深层维度（如具体事实交叉验证、更深度的风险权衡或实际防护行动）。"
 
         if grounding_context:
             action_prompt += (
@@ -152,7 +217,7 @@ class QuestionGenerator:
 
         user_content = (
             f"=== 当前现实真实时间 ===\n{now_str}\n\n"
-            f"=== 测评主题 ===\n{topic}{grounding_section}\n\n"
+            f"=== 测评主题 ===\n{core_topic}{skills_directive}{grounding_section}\n\n"
             f"=== 对话规格与场景 ===\n"
             f"真人嘴巴说话 / 真实语音通话（总限时约 {duration_desc}）。用户需要直接张嘴把问题读出来！\n\n"
             f"=== 任务指令 ===\n{action_prompt}\n\n"
@@ -248,8 +313,9 @@ class QuestionGenerator:
                     f"【测试关注点】: 考察模型对具体维度的拆解分析能力。"
                 )
 
-        # 4. Clean conversational fallback (strip benchmark jargon)
-        cleaned = re.sub(r"[（\(].*?[）\)]", "", topic)
+        # 4. Clean conversational fallback (strip benchmark jargon & Skills tested)
+        core_topic, skills = self.parse_topic_and_skills(topic)
+        cleaned = re.sub(r"[（\(].*?[）\)]", "", core_topic)
         for kw in ["模型扮演", "让模型", "请分析", "在多个层面", "选两个看似无关的领域", "考察模型", "2-3轮之后转向", "测试关注点", "测试重点"]:
             cleaned = cleaned.replace(kw, "")
         cleaned = re.sub(r"[，。！？、“”《》\(\)（）\n\r]+", " ", cleaned).strip()
