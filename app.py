@@ -160,15 +160,32 @@ class FactualityApp:
         frame_a = tk.Frame(input_panes, bg=self.bg_color)
         frame_a.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
+        header_a = tk.Frame(frame_a, bg=self.bg_color)
+        header_a.pack(fill=tk.X, pady=(0, 6))
+
         label_a = tk.Label(
-            frame_a,
-            text="粘贴1  (⌥⌘1)",
+            header_a,
+            text="粘贴1 (Model A)",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
-            anchor="w",
         )
-        label_a.pack(fill=tk.X, pady=(0, 6))
+        label_a.pack(side=tk.LEFT)
+
+        btn_paste_a = tk.Button(
+            header_a,
+            text="📋 粘贴到此处 (⌥⌘1)",
+            font=("SF Pro Text", 11),
+            bg=self.card_bg,
+            fg=self.accent_color,
+            activebackground=self.border_color,
+            relief=tk.FLAT,
+            padx=8,
+            pady=2,
+            cursor="pointinghand",
+            command=self._hotkey_paste_a,
+        )
+        btn_paste_a.pack(side=tk.RIGHT)
 
         self.txt_a = tk.Text(
             frame_a,
@@ -190,15 +207,32 @@ class FactualityApp:
         frame_b = tk.Frame(input_panes, bg=self.bg_color)
         frame_b.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
+        header_b = tk.Frame(frame_b, bg=self.bg_color)
+        header_b.pack(fill=tk.X, pady=(0, 6))
+
         label_b = tk.Label(
-            frame_b,
-            text="粘贴2  (⌥⌘2)",
+            header_b,
+            text="粘贴2 (Model B)",
             font=("SF Pro Text", 13, "bold"),
             bg=self.bg_color,
             fg=self.text_color,
-            anchor="w",
         )
-        label_b.pack(fill=tk.X, pady=(0, 6))
+        label_b.pack(side=tk.LEFT)
+
+        btn_paste_b = tk.Button(
+            header_b,
+            text="📋 粘贴到此处 (⌥⌘2)",
+            font=("SF Pro Text", 11),
+            bg=self.card_bg,
+            fg=self.accent_color,
+            activebackground=self.border_color,
+            relief=tk.FLAT,
+            padx=8,
+            pady=2,
+            cursor="pointinghand",
+            command=self._hotkey_paste_b,
+        )
+        btn_paste_b.pack(side=tk.RIGHT)
 
         self.txt_b = tk.Text(
             frame_b,
@@ -216,20 +250,38 @@ class FactualityApp:
         )
         self.txt_b.pack(fill=tk.BOTH, expand=True)
 
-        # --- Bottom Section: Action Button & Subtle Status ---
+        # --- Bottom Section: Action Buttons & Subtle Status ---
         bottom_bar = tk.Frame(main_container, bg=self.bg_color)
         bottom_bar.pack(fill=tk.X, pady=(16, 0))
 
+        # Super shortcut button: Paste Box 2 and send immediately
+        self.btn_paste_b_submit = tk.Button(
+            bottom_bar,
+            text="🚀 粘贴【2】并立即发送 (⌥⌘S)",
+            font=("SF Pro Text", 13, "bold"),
+            bg="#188038",
+            fg="#ffffff",
+            activebackground="#137333",
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            padx=18,
+            pady=10,
+            cursor="pointinghand",
+            command=self._hotkey_paste_b_and_submit,
+        )
+        self.btn_paste_b_submit.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Standard send button
         self.btn_submit = tk.Button(
             bottom_bar,
-            text="发送到手机 (⌥⌘↩ / ⌥⌘S)",
-            font=("SF Pro Text", 14, "bold"),
+            text="📤 发送到手机 (⌥⌘↩)",
+            font=("SF Pro Text", 13, "bold"),
             bg=self.accent_color,
             fg="#ffffff",
             activebackground="#1557b0",
             activeforeground="#ffffff",
             relief=tk.FLAT,
-            padx=32,
+            padx=20,
             pady=10,
             cursor="pointinghand",
             command=self.on_submit_eval,
@@ -246,9 +298,21 @@ class FactualityApp:
         )
         self.lbl_status.pack(side=tk.RIGHT, padx=10)
 
-        # Keyboard shortcuts (Cmd+Return on macOS, Ctrl+Return on Windows/Linux)
+        # Keyboard shortcuts (dual-layer: both Cmd+Return and Option+Command bindings)
         self.root.bind("<Command-Return>", lambda event: self.on_submit_eval())
         self.root.bind("<Control-Return>", lambda event: self.on_submit_eval())
+        self.root.bind("<Option-Command-Return>", lambda event: self.on_submit_eval())
+        self.root.bind("<Alt-Command-Return>", lambda event: self.on_submit_eval())
+        self.root.bind("<Option-Command-1>", lambda event: self._hotkey_paste_a())
+        self.root.bind("<Alt-Command-1>", lambda event: self._hotkey_paste_a())
+        self.root.bind("<Option-Command-2>", lambda event: self._hotkey_paste_b())
+        self.root.bind("<Alt-Command-2>", lambda event: self._hotkey_paste_b())
+        self.root.bind("<Option-Command-3>", lambda event: self._hotkey_paste_topic())
+        self.root.bind("<Alt-Command-3>", lambda event: self._hotkey_paste_topic())
+        self.root.bind("<Option-Command-s>", lambda event: self._hotkey_paste_b_and_submit())
+        self.root.bind("<Option-Command-S>", lambda event: self._hotkey_paste_b_and_submit())
+        self.root.bind("<Alt-Command-s>", lambda event: self._hotkey_paste_b_and_submit())
+        self.root.bind("<Alt-Command-S>", lambda event: self._hotkey_paste_b_and_submit())
 
         # Set initial focus to Topic input
         self.txt_topic.focus_set()
@@ -442,32 +506,38 @@ class FactualityApp:
     def _hotkey_paste_a(self):
         clip = self._get_clipboard_text().strip()
         if not clip:
+            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
         self.root.after(0, lambda: self._apply_paste_a(clip))
 
     def _apply_paste_a(self, text: str):
         self.txt_a.delete("1.0", tk.END)
         self.txt_a.insert("1.0", text)
-        self._set_status_temp(f"已快捷存入【粘贴1】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
+        self._set_status_temp(f"已存入【粘贴1】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
         self._play_feedback_sound("Pop")
         self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴1】（{len(text)} 字）")
 
     def _hotkey_paste_b(self):
         clip = self._get_clipboard_text().strip()
         if not clip:
+            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
         self.root.after(0, lambda: self._apply_paste_b(clip))
 
     def _apply_paste_b(self, text: str):
         self.txt_b.delete("1.0", tk.END)
         self.txt_b.insert("1.0", text)
-        self._set_status_temp(f"已快捷存入【粘贴2】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
+        self._set_status_temp(f"已存入【粘贴2】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
         self._play_feedback_sound("Pop")
         self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴2】（{len(text)} 字）")
 
     def _hotkey_paste_topic(self):
         clip = self._get_clipboard_text().strip()
         if not clip:
+            self.root.after(0, lambda: self._set_status_temp("⚠️ 剪贴板为空，请先复制内容", duration_ms=2500, fg="#d93025"))
+            self._notify_macos("Factuality 提示", "剪贴板为空，请先在其他应用复制内容！")
             return
         self.root.after(0, lambda: self._apply_paste_topic(clip))
 
@@ -495,6 +565,16 @@ class FactualityApp:
         if clip:
             self.txt_b.delete("1.0", tk.END)
             self.txt_b.insert("1.0", clip)
+        content_a = self.txt_a.get("1.0", tk.END).strip()
+        content_b = self.txt_b.get("1.0", tk.END).strip()
+        if not content_a and not content_b:
+            self._set_status_temp("⚠️ 剪贴板和输入框均为空", duration_ms=2500, fg="#d93025")
+            self._notify_macos("Factuality 提示", "剪贴板与输入框均为空，请先在其他应用复制内容！")
+            return
+        if not content_a:
+            self._set_status_temp("⚠️ 请先存入【粘贴1】(Model A)", duration_ms=2500, fg="#ea8600")
+            self._notify_macos("Factuality 提示", "【粘贴1】为空，请先存入 Model A 对话！")
+            return
         self.on_submit_eval()
         self._play_feedback_sound("Hero")
         self._notify_macos("Factuality 快捷键", "已存入【粘贴2】并立即发送至手机！")
