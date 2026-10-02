@@ -87,15 +87,13 @@ class QuestionGenerator:
             config.get("gemini_api_key")
             or os.environ.get("GEMINI_API_KEY", "")
         ).strip()
-        self.primary_model = config.get("gemini_model", "gemini-3.1-flash-lite").strip()
+        self.primary_model = config.get("gemini_model", "gemini-3.8-flash").strip()
         self.candidate_models = [
-            "gemini-3.1-flash-lite",
-            "gemma-4-26b-a4b-it",
-            "gemini-3.6-flash",
             "gemini-3.8-flash",
             "gemini-3.7-flash",
-            "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
+            "gemini-3.1-pro-preview",
+            "gemini-3.6-flash",
+            "gemini-3.1-flash-lite",
         ]
         if self.primary_model not in self.candidate_models:
             self.candidate_models.insert(0, self.primary_model)

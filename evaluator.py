@@ -180,13 +180,13 @@ class FactualityEvaluator:
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )
 
-        # Verified active candidate models in priority order (prioritize full flash models for rigorous reasoning)
-        candidate_models = ["gemini-3.8-flash", "gemini-3.7-flash"]
-        if self.primary_model not in candidate_models:
+        # Verified active candidate models in priority order (prioritize flagship pro reasoning model, then flash)
+        candidate_models = []
+        if self.primary_model:
             candidate_models.append(self.primary_model)
-        for fallback in ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]:
-            if fallback not in candidate_models:
-                candidate_models.append(fallback)
+        for top_m in ["gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite"]:
+            if top_m not in candidate_models:
+                candidate_models.append(top_m)
 
         last_error = ""
         for model in candidate_models:
