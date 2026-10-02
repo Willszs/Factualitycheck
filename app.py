@@ -13,6 +13,7 @@ import logging
 import threading
 import subprocess
 import tkinter as tk
+from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Optional
 
