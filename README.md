@@ -1,60 +1,45 @@
 # AI Factuality Comparison & Question Generator Tool
 
-A high-performance, distraction-free desktop application engineered for benchmarking and factuality evaluation between Large Language Models (LLMs) across complex multi-turn dialogues.
+A high-performance desktop application engineered for benchmarking and factuality evaluation between Large Language Models (LLMs) across complex multi-turn dialogues.
 
-Integrates **bidirectional Telegram mobile control**, **system-wide zero-click global hotkeys**, **Google Gemini 3.1 Pro forensic evaluation**, **advanced human-like typing simulation**, and **customizable desktop notification controls** for a fully automated, frictionless evaluation loop.
+Integrates **bidirectional Telegram mobile interaction**, **Google Gemini 3.1 Pro forensic evaluation**, and **customizable desktop notification controls** for an automated, distraction-free evaluation loop.
 
 ---
 
 ## 🌟 Key Features & Capabilities
 
-### 1. ⚡ Zero-Click & Zero-Window-Switching Workflow (Global Hotkeys)
-Evaluate models and generate test questions from any browser, editor, or chat window without ever switching back to the app window:
-- **`⌥⌘3` (`Option + Command + 3`)**: Copy any topic or query (`⌘C`) in any application and hit `⌥⌘3`. The app instantly captures your clipboard, updates the UI, and **immediately dispatches it to your Telegram bot** to initiate interactive benchmark generation. Zero clicks required.
-- **`⌥⌘1` (`Option + Command + 1`)**: Copy Model A's multi-turn transcript and store it into **Input 1 (Model A)**.
-- **`⌥⌘2` (`Option + Command + 2`)**: Copy Model B's multi-turn transcript and store it into **Input 2 (Model B)**.
-- **Auto-Evaluation on Dual Fill**: As soon as both model inputs contain text, the system **automatically triggers factuality evaluation** and pushes the report directly to your phone. No mouse clicks needed.
-- **Manual Resend Backup**: `⌥⌘S` or `⌥⌘↩` (`Option + Command + Return`) to re-trigger evaluation at any time.
-- *Engineered with custom `RobustGlobalHotKeys`: Fully handles macOS Option dead-key character mappings (`£`, `¡`, `™`, `ß`) via native virtual keycode normalization for 100% reliable shortcut triggers.*
-
-### 2. 🧠 Flagship Gemini 3.1 Pro Evaluation with Natural Human Reviewer Tone
-- **Flagship Engine**: Powered by Google's flagship reasoning model **`gemini-3.1-pro-preview`**, with full Tier 1 concurrency support delivering comprehensive forensic reports in ~5 seconds.
+### 1. 🧠 Flagship Gemini 3.1 Pro Evaluation with Natural Human Reviewer Tone
+- **Flagship Engine**: Powered by Google's flagship reasoning model **`gemini-3.1-pro-preview`**, supporting Tier 1 concurrency to deliver comprehensive forensic reports in ~5 seconds.
 - **Natural Human Reviewer Voice**: Completely strips away formulaic academic jargon, generic textbook boilerplate, and evasive filler. Delivers direct, incisive, and pragmatic critique.
 - **Strict Word Budget**: Structured into concise paragraphs strictly enforced to P1 ≤ 150 words and P2 ≤ 150 words (total ≤ 300 words), highlighting the overarching Verdict alongside specific Flaws and Ground Truth for each model.
 
-### 3. ⌨️ Advanced Human-Like Typer Simulation (Auto-Type)
-When receiving suggested questions or prompts on Telegram, tap the in-chat button to auto-type directly into your active target input with realistic human typing characteristics:
-- **Physical QWERTY Adjacent Typos**: Simulates genuine finger slips to physically adjacent keys on the keyboard (e.g., mistyping `e` as `w`/`r`, or `k` as `j`/`l`).
-- **Cognitive Hesitation**: Introduces realistic 180ms ~ 380ms pauses upon making an error before backspacing.
-- **Hardware Backspace Correction**: Emulates physical macOS Backspace keypresses (`keycode 51`) to delete mistakes and retype the correct characters.
-- **Natural Cadence**: Incorporates typing bursts, variable inter-key intervals, and irregular thinking pauses, eliminating robotic constancy.
+### 2. 📱 Bidirectional Telegram Mobile Interaction
+- **Dynamic Round Configuration**: Enter a dialogue topic on desktop; your Telegram bot immediately inquires: *"How many rounds or how long should this benchmark last?"*.
+- **Interactive Question Generation**: Reply directly from your phone (e.g., `5 rounds`, `10 mins`, or `3-turn deep dive`). The bot generates **Round 1's precision factuality probe question** with interactive inline buttons:
+  - **`[🔄 Re-roll Question]`**: Re-generates the question from a completely fresh perspective using AI.
+  - **`[➡️ Confirm & Next Round]`**: Advances to the next deeper, sequential test round.
+- **Instant Mobile Delivery**: As soon as evaluation completes, the concise forensic report is pushed directly to Telegram.
 
-### 4. 🔔 Customizable Desktop Notification Switch
-- An integrated **`[√] 🔔 桌面弹窗提醒`** (`Desktop Popups`) checkbox located directly on the bottom control bar.
+### 3. 🔔 Customizable Desktop Notification Switch
+- An integrated **`[√] 🔔 桌面弹窗提醒`** (`Desktop Popups`) checkbox located on the bottom control bar.
 - **Instant Toggle**:
-  - **Enabled**: Displays macOS native banner notifications with subtle sound feedback upon capturing text or completing evaluations.
+  - **Enabled**: Displays macOS native banner notifications with subtle sound feedback upon dispatching tasks or completing evaluations.
   - **Disabled**: Runs in 100% silent focus mode (no desktop banners), while the status bar within the window continues to update smoothly.
 - **Persistent State**: The toggle state automatically persists to `config.json` (`"enable_notifications": true/false`) across app launches.
 
-### 5. 📱 Bidirectional Telegram Mobile Loop
-- Press `⌥⌘3` on desktop; your Telegram bot immediately inquires: *"How many rounds or how long should this benchmark last?"*.
-- Reply directly from your phone (e.g., `5 rounds`, `10 mins`, or `3-turn deep dive`).
-- The bot instantly generates and sends **Round 1's precision factuality probe question** with interactive inline buttons:
-  - **`[🔄 Re-roll Question]`**: Re-generates the question from a completely fresh perspective using AI.
-  - **`[➡️ Confirm & Next Round]`**: Advances to the next deeper, sequential test round.
-- After running the dialogues with both models, capture them via `⌥⌘1` and `⌥⌘2` to immediately receive the forensic verdict on your phone.
+### 4. ⚡ Rapid Evaluation Workflow
+- **Asynchronous Execution**: Submitting dialogues clears the inputs in milliseconds and hands off the evaluation to a background daemon, keeping the UI completely fluid and responsive.
+- **Keyboard Shortcut**: Press `Cmd + Return` (or `Option + Command + Return`) to trigger evaluation instantly.
 
 ---
 
 ## 🔄 Closed-Loop Workflow Overview
 
 ```
-[1. Copy topic in any app (⌘C)] ➡️ Press ⌥⌘3 (Auto-extracts & dispatches)
-                                           ⬇️
-[2. Reply target rounds on Telegram] ➡️ [3. Receive probe questions & interactive re-rolls]
-                                           ⬇️
-[4. Run dialogue in Model A & B]     ➡️ Press ⌥⌘1 & ⌥⌘2 (Auto-evaluates once both filled)
-                                           ⬇️
+[1. Enter Topic on Desktop]          ➡️ [2. Reply target rounds on Telegram]
+                                                ⬇️
+[4. Enter Model A & B Dialogues]    ⬅️ [3. Receive probe questions & interactive re-rolls]
+         ⬇️
 [5. Receive concise English forensic report on phone (Verdict / Flaws / Ground Truth)]
 ```
 
@@ -103,7 +88,7 @@ Simply double-click the launcher script in the project directory:
 ```
 
 ### Running Automated Tests
-Run the comprehensive test suite covering factuality assessment, human-like typing simulation, macOS dead-key hotkey normalization, and configuration persistence:
+Run the comprehensive test suite covering factuality assessment, dialogue auditing, and configuration persistence:
 ```bash
 .venv/bin/python test_factuality.py
 ```
