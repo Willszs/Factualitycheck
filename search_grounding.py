@@ -228,7 +228,21 @@ class SearchGrounding:
                 if len(clean_m) >= 3 and clean_m not in queries:
                     queries.append(f"{clean_m} {now_year}")
 
-        # 3. Extract core domain keywords from Turn 1 (strip conversational noise)
+        # 3. Holiday travel, highway traffic, and new energy vehicle metrics (e.g. 国庆 高速 电车 抢桩 流量)
+        if any(w in combined for w in ["国庆", "节假日", "春运", "中秋", "五一"]):
+            if any(w in combined for w in ["电车", "新能源", "纯电", "充电桩", "抢桩"]):
+                queries.append(f"国庆 高速 新能源车 流量 充电 {now_year}")
+            elif any(w in combined for w in ["高速", "大堵车", "车流", "自驾", "路况"]):
+                queries.append(f"国庆 高速公路 车流 预测 拥堵 {now_year}")
+
+        # 4. Public health, epidemics, and disease travel guidelines
+        if any(w in combined for w in ["呼吸道", "疾病", "病毒", "疫情", "传染病"]):
+            if any(w in combined for w in ["航班", "飞机", "出行", "乘机"]):
+                queries.append(f"最新呼吸道疾病 航班 乘机 风险 建议 {now_year}")
+            else:
+                queries.append(f"最新呼吸道传染病 疫情 疾控通报 {now_year}")
+
+        # 5. Extract core domain keywords from Turn 1 (strip conversational noise)
         lines = [line.strip() for line in transcript_a.splitlines() if line.strip()]
         if lines:
             first_user_line = lines[0]
