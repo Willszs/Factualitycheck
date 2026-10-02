@@ -134,17 +134,17 @@ class FactualityApp:
 
         self.btn_topic = tk.Button(
             topic_frame,
-            text="发送 (⌥⌘3)",
+            text="📋 粘贴并发送 (⌥⌘3)",
             font=("SF Pro Text", 12, "bold"),
             bg=self.green_accent,
             fg="#ffffff",
             activebackground="#2d9249",
             activeforeground="#ffffff",
             relief=tk.FLAT,
-            padx=20,
+            padx=16,
             pady=6,
             cursor="pointinghand",
-            command=self.on_submit_topic,
+            command=self._hotkey_paste_topic,
         )
         self.btn_topic.pack(side=tk.RIGHT)
 
@@ -250,53 +250,35 @@ class FactualityApp:
         )
         self.txt_b.pack(fill=tk.BOTH, expand=True)
 
-        # --- Bottom Section: Action Buttons & Subtle Status ---
+        # --- Bottom Section: Auto-Status Indicator & Manual Fallback Button ---
         bottom_bar = tk.Frame(main_container, bg=self.bg_color)
         bottom_bar.pack(fill=tk.X, pady=(16, 0))
 
-        # Super shortcut button: Paste Box 2 and send immediately
-        self.btn_paste_b_submit = tk.Button(
+        # Status indicator
+        self.lbl_status = tk.Label(
             bottom_bar,
-            text="🚀 粘贴【2】并立即发送 (⌥⌘S)",
-            font=("SF Pro Text", 13, "bold"),
-            bg="#188038",
-            fg="#ffffff",
-            activebackground="#137333",
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            padx=18,
-            pady=10,
-            cursor="pointinghand",
-            command=self._hotkey_paste_b_and_submit,
+            text="⚡ 自动流程已就绪：粘贴问题即发，两模型填满即发",
+            font=("SF Pro Text", 12, "bold"),
+            bg=self.bg_color,
+            fg="#188038",
         )
-        self.btn_paste_b_submit.pack(side=tk.LEFT, padx=(0, 10))
+        self.lbl_status.pack(side=tk.LEFT)
 
-        # Standard send button
+        # Standard send button as backup
         self.btn_submit = tk.Button(
             bottom_bar,
-            text="📤 发送到手机 (⌥⌘↩)",
-            font=("SF Pro Text", 13, "bold"),
-            bg=self.accent_color,
-            fg="#ffffff",
-            activebackground="#1557b0",
-            activeforeground="#ffffff",
+            text="📤 手动重发 (⌥⌘↩)",
+            font=("SF Pro Text", 11),
+            bg=self.card_bg,
+            fg=self.accent_color,
+            activebackground=self.border_color,
             relief=tk.FLAT,
-            padx=20,
-            pady=10,
+            padx=14,
+            pady=6,
             cursor="pointinghand",
             command=self.on_submit_eval,
         )
-        self.btn_submit.pack(side=tk.LEFT)
-
-        # Status indicator (CRITICAL: zero evaluation result on UI)
-        self.lbl_status = tk.Label(
-            bottom_bar,
-            text="就绪",
-            font=("SF Pro Text", 11),
-            bg=self.bg_color,
-            fg="#5f6368",
-        )
-        self.lbl_status.pack(side=tk.RIGHT, padx=10)
+        self.btn_submit.pack(side=tk.RIGHT)
 
         # Keyboard shortcuts (dual-layer: both Cmd+Return and Option+Command bindings)
         self.root.bind("<Command-Return>", lambda event: self.on_submit_eval())
@@ -333,6 +315,32 @@ class FactualityApp:
         self.txt_a.bind("<Control-a>", lambda e: (self.txt_a.tag_add("sel", "1.0", "end"), "break")[1])
         self.txt_b.bind("<Command-a>", lambda e: (self.txt_b.tag_add("sel", "1.0", "end"), "break")[1])
         self.txt_b.bind("<Control-a>", lambda e: (self.txt_b.tag_add("sel", "1.0", "end"), "break")[1])
+
+        # Auto-send on paste events inside input widgets (Zero-click workflow)
+        self.txt_topic.bind("<<Paste>>", lambda e: self.root.after(100, self._check_and_auto_send_topic))
+        self.txt_a.bind("<<Paste>>", lambda e: self.root.after(100, self._check_and_auto_send_eval))
+        self.txt_b.bind("<<Paste>>", lambda e: self.root.after(100, self._check_and_auto_send_eval))
+
+    def _check_and_auto_send_topic(self):
+        topic = self.txt_topic.get().strip()
+        if topic:
+            self._set_status_temp("已存入主题，自动发送中...", duration_ms=2500, fg="#1e8e3e")
+            self._play_feedback_sound("Glass")
+            self._notify_macos("Factuality 自动发送", "检测到已粘贴主题，已自动发送至 Telegram 机器人！")
+            self.on_submit_topic()
+
+    def _check_and_auto_send_eval(self):
+        content_a = self.txt_a.get("1.0", tk.END).strip()
+        content_b = self.txt_b.get("1.0", tk.END).strip()
+        if content_a and content_b:
+            self._set_status_temp("两边模型内容齐全，正在自动测评发送...", duration_ms=2500, fg="#1e8e3e")
+            self._play_feedback_sound("Hero")
+            self._notify_macos("Factuality 自动发送", "检测到两模型内容已齐全，正在自动评测并发送至手机！")
+            self.on_submit_eval()
+        elif content_a:
+            self._set_status_temp(f"已存入【粘贴1】({len(content_a)}字)，等待模型二...", duration_ms=2500, fg="#1a73e8")
+        elif content_b:
+            self._set_status_temp(f"已存入【粘贴2】({len(content_b)}字)，等待模型一...", duration_ms=2500, fg="#1a73e8")
 
     def _attach_context_menu(self, widget):
         """Attaches right-click Cut, Copy, Paste, Select All, Clear menu."""
@@ -449,18 +457,33 @@ class FactualityApp:
         try:
             from pynput import keyboard
 
-            self.hotkey_listener = keyboard.GlobalHotKeys({
-                "<cmd>+<alt>+1": self._hotkey_paste_a,
-                "<ctrl>+<alt>+1": self._hotkey_paste_a,
-                "<cmd>+<alt>+2": self._hotkey_paste_b,
-                "<ctrl>+<alt>+2": self._hotkey_paste_b,
-                "<cmd>+<alt>+3": self._hotkey_paste_topic,
-                "<ctrl>+<alt>+3": self._hotkey_paste_topic,
-                "<cmd>+<alt>+<enter>": self._hotkey_submit_eval,
-                "<ctrl>+<alt>+<enter>": self._hotkey_submit_eval,
-                "<cmd>+<alt>+s": self._hotkey_paste_b_and_submit,
-                "<ctrl>+<alt>+s": self._hotkey_paste_b_and_submit,
-            })
+            hotkey_map = {}
+            a_keys = [
+                "<cmd>+<alt>+1", "<cmd_r>+<alt>+1", "<cmd>+<alt_r>+1", "<cmd_r>+<alt_r>+1",
+                "<ctrl>+<alt>+1", "<ctrl>+<alt_r>+1", "<cmd>+<shift>+1", "<ctrl>+<shift>+1"
+            ]
+            b_keys = [
+                "<cmd>+<alt>+2", "<cmd_r>+<alt>+2", "<cmd>+<alt_r>+2", "<cmd_r>+<alt_r>+2",
+                "<ctrl>+<alt>+2", "<ctrl>+<alt_r>+2", "<cmd>+<shift>+2", "<ctrl>+<shift>+2"
+            ]
+            topic_keys = [
+                "<cmd>+<alt>+3", "<cmd_r>+<alt_r>+3", "<cmd>+<alt_r>+3", "<cmd_r>+<alt>+3",
+                "<ctrl>+<alt>+3", "<ctrl>+<alt_r>+3", "<cmd>+<shift>+3", "<ctrl>+<shift>+3"
+            ]
+            submit_keys = [
+                "<cmd>+<alt>+<enter>", "<ctrl>+<alt>+<enter>", "<cmd>+<alt>+s", "<ctrl>+<alt>+s"
+            ]
+
+            for k in a_keys:
+                hotkey_map[k] = self._hotkey_paste_a
+            for k in b_keys:
+                hotkey_map[k] = self._hotkey_paste_b
+            for k in topic_keys:
+                hotkey_map[k] = self._hotkey_paste_topic
+            for k in submit_keys:
+                hotkey_map[k] = self._hotkey_submit_eval
+
+            self.hotkey_listener = keyboard.GlobalHotKeys(hotkey_map)
             self.hotkey_listener.start()
             logger.info("Global hotkey listener started (⌥⌘1, ⌥⌘2, ⌥⌘3, ⌥⌘↩, ⌥⌘S).")
         except Exception as e:
@@ -514,9 +537,19 @@ class FactualityApp:
     def _apply_paste_a(self, text: str):
         self.txt_a.delete("1.0", tk.END)
         self.txt_a.insert("1.0", text)
-        self._set_status_temp(f"已存入【粘贴1】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
-        self._play_feedback_sound("Pop")
-        self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴1】（{len(text)} 字）")
+        content_a = text.strip()
+        content_b = self.txt_b.get("1.0", tk.END).strip()
+
+        # If both models have content, directly send immediately without clicking!
+        if content_a and content_b:
+            self._set_status_temp("两边模型内容齐全，自动测评发送中...", duration_ms=2500, fg="#1e8e3e")
+            self._play_feedback_sound("Hero")
+            self._notify_macos("Factuality 自动发送", f"【粘贴1】已存入（{len(content_a)}字），两模型内容已齐全，正在自动评测并发送至手机！")
+            self.on_submit_eval()
+        else:
+            self._set_status_temp(f"已存入【粘贴1】({len(content_a)}字)，等待模型二...", duration_ms=2500, fg="#1a73e8")
+            self._play_feedback_sound("Pop")
+            self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴1】（{len(content_a)} 字），等待模型二...")
 
     def _hotkey_paste_b(self):
         clip = self._get_clipboard_text().strip()
@@ -529,9 +562,19 @@ class FactualityApp:
     def _apply_paste_b(self, text: str):
         self.txt_b.delete("1.0", tk.END)
         self.txt_b.insert("1.0", text)
-        self._set_status_temp(f"已存入【粘贴2】({len(text)}字)", duration_ms=2500, fg="#1a73e8")
-        self._play_feedback_sound("Pop")
-        self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴2】（{len(text)} 字）")
+        content_b = text.strip()
+        content_a = self.txt_a.get("1.0", tk.END).strip()
+
+        # If both models have content, directly send immediately without clicking!
+        if content_a and content_b:
+            self._set_status_temp("两边模型内容齐全，自动测评发送中...", duration_ms=2500, fg="#1e8e3e")
+            self._play_feedback_sound("Hero")
+            self._notify_macos("Factuality 自动发送", f"【粘贴2】已存入（{len(content_b)}字），两模型内容已齐全，正在自动评测并发送至手机！")
+            self.on_submit_eval()
+        else:
+            self._set_status_temp(f"已存入【粘贴2】({len(content_b)}字)，等待模型一...", duration_ms=2500, fg="#1a73e8")
+            self._play_feedback_sound("Pop")
+            self._notify_macos("Factuality 快捷键", f"已从剪贴板存入【粘贴2】（{len(content_b)} 字），等待模型一...")
 
     def _hotkey_paste_topic(self):
         clip = self._get_clipboard_text().strip()
@@ -544,9 +587,12 @@ class FactualityApp:
     def _apply_paste_topic(self, text: str):
         self.txt_topic.delete(0, tk.END)
         self.txt_topic.insert(0, text)
-        self.on_submit_topic()
-        self._play_feedback_sound("Glass")
-        self._notify_macos("Factuality 快捷键", "已存入【粘贴3】并发送主题！")
+        clean_topic = text.strip()
+        if clean_topic:
+            self._set_status_temp("已存入主题，自动发送中...", duration_ms=2500, fg="#1e8e3e")
+            self._play_feedback_sound("Glass")
+            self._notify_macos("Factuality 自动发送", "已自动获取剪贴板主题并发送至 Telegram 机器人！")
+            self.on_submit_topic()
 
     def _hotkey_submit_eval(self):
         self.root.after(0, self._apply_submit_eval)
