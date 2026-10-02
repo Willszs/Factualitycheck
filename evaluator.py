@@ -312,6 +312,7 @@ class FactualityEvaluator:
                     system_instruction=prompt,
                     temperature=0.1,
                     max_output_tokens=16384,
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
                 ),
             )
             if response and response.text:
@@ -341,6 +342,11 @@ class FactualityEvaluator:
             "contents": [
                 {
                     "parts": [{"text": user_content}]
+                }
+            ],
+            "tools": [
+                {
+                    "google_search": {}
                 }
             ],
             "generationConfig": {
