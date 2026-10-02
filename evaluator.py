@@ -300,7 +300,7 @@ class FactualityEvaluator:
                 config=types.GenerateContentConfig(
                     system_instruction=prompt,
                     temperature=0.1,
-                    max_output_tokens=2048,
+                    max_output_tokens=8192,
                 ),
             )
             if response and response.text:
@@ -330,7 +330,7 @@ class FactualityEvaluator:
             ],
             "generationConfig": {
                 "temperature": 0.1,
-                "maxOutputTokens": 2048
+                "maxOutputTokens": 8192
             }
         }
 
