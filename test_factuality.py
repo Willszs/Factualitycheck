@@ -204,6 +204,8 @@ class TestFactualityComponents(unittest.TestCase):
         callback_datas = [b["callback_data"] for b in buttons]
         self.assertIn("action_ready_direct_type", callback_datas)
         self.assertIn("action_need_edit_report", callback_datas)
+        row1_buttons = last_call_kwargs["reply_markup"]["inline_keyboard"][1]
+        self.assertIn("action_condense_report", [b["callback_data"] for b in row1_buttons])
 
         # 2. User clicks "我需要修改"
         bot._handle_callback_data("action_need_edit_report", message_id=123)
@@ -418,6 +420,61 @@ Skills tested
         core_4, skills_4 = QuestionGenerator.parse_topic_and_skills(raw_4)
         self.assertEqual(core_4, "明朝万历十五年的历史事件")
         self.assertEqual(skills_4, [])
+
+    def test_char_limit_and_hard_truncate(self):
+        very_long_p1 = "For conversational dynamics I prefer Model A. " + "Model A remained direct and avoided unnecessary preamble. " * 20
+        very_long_p2 = "For utility I prefer Model A. " + "Model B in Turn 2 gave completely fabricated numbers about battery life. Ground Truth: 350 miles. " * 20
+        full_report = f"{very_long_p1}\n\n{very_long_p2}"
+        self.assertGreater(len(full_report), 1500)
+
+        truncated = FactualityEvaluator._hard_truncate_to_char_limit(full_report, max_chars=800)
+        self.assertLessEqual(len(truncated), 800)
+        paragraphs = truncated.split("\n\n")
+        self.assertEqual(len(paragraphs), 2)
+        self.assertTrue(paragraphs[0].startswith("For conversational dynamics I prefer Model A."))
+        self.assertTrue(paragraphs[1].startswith("For utility I prefer Model A."))
+
+    def test_human_typer_control_states(self):
+        from typer import HumanTyper
+
+        HumanTyper.pause()
+        self.assertTrue(HumanTyper.is_paused())
+
+        HumanTyper.resume()
+        self.assertFalse(HumanTyper.is_paused())
+
+        HumanTyper.stop()
+        self.assertFalse(HumanTyper.is_active())
+
+    @patch("requests.post")
+    def test_telegram_typing_controls_and_condense(self, mock_post):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"ok": True, "result": {"message_id": 999}}
+        mock_post.return_value = mock_resp
+
+        bot = TelegramBotService(self.sample_config)
+        bot.current_factuality_report = (
+            "For conversational dynamics I prefer Model A. Model A was clear.\n\n"
+            "For utility I prefer Model A. Model B erred in Turn 4. Ground Truth: 100."
+        )
+
+        # 1. Test condense callback
+        with patch.object(bot.evaluator, "condense_report", return_value="For conversational dynamics I prefer Model A. Clear.\n\nFor utility I prefer Model A. Turn 4 error."):
+            bot._handle_callback_data("action_condense_report", message_id=123)
+            self.assertIn("Turn 4 error", bot.current_factuality_report)
+            self.assertLessEqual(len(bot.current_factuality_report), 800)
+
+        # 2. Test typing pause, resume, stop callbacks
+        with patch("typer.HumanTyper.is_active", return_value=True):
+            bot._handle_callback_data("action_pause_typing", message_id=123)
+            from typer import HumanTyper
+            self.assertTrue(HumanTyper.is_paused())
+
+            bot._handle_callback_data("action_resume_typing", message_id=123)
+            self.assertFalse(HumanTyper.is_paused())
+
+        bot._handle_callback_data("action_stop_typing", message_id=123)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ except ImportError:
 
 from question_generator import QuestionGenerator
 from typer import HumanTyper
+from evaluator import FactualityEvaluator
 
 logger = logging.getLogger("factuality.telegram_bot")
 
@@ -32,6 +33,7 @@ class TelegramBotService:
         self.target_chat_id = str(tg_cfg.get("chat_id", "")).strip()
 
         self.generator = QuestionGenerator(config)
+        self.evaluator = FactualityEvaluator(config)
 
         # Topic & Benchmark Session state
         self.state = "IDLE"  # IDLE, WAITING_DURATION, INTERACTIVE_QUESTIONS
@@ -45,6 +47,7 @@ class TelegramBotService:
         self.pending_typing_text = ""
         self.current_factuality_report = ""
         self.is_typing_active = False
+        self.active_typing_msg_id = None
 
         self.last_update_id = 0
         self.is_running = False
@@ -100,7 +103,8 @@ class TelegramBotService:
         Delivers the factuality check report (structured into two dimensions with an empty line),
         and offers interactive options:
         1. 准备好了，直接打字 (Ready, direct typing)
-        2. 我需要修改 (Need to edit before typing)
+        2. ⚡ 精炼浓缩（<800字符） (Condense on demand)
+        3. 我需要修改 (Need to edit before typing)
         """
         # Preserve the empty line between the two evaluation dimensions
         clean_summary = re.sub(r"\r\n", "\n", summary).strip()
@@ -112,10 +116,16 @@ class TelegramBotService:
 
         escaped_title = html.escape(title)
         escaped_body = html.escape(clean_summary)
+        char_count = len(clean_summary)
+
+        warn_text = ""
+        if char_count > 800:
+            warn_text = f"\n⚠️ <i>提示：当前报告为 {char_count} 字符（超出 800 字符限制），可点击下方【⚡ 精炼浓缩】一键压缩至 800 字符以内。</i>\n"
 
         msg = (
-            f"📊 <b>{escaped_title}</b>\n\n"
-            f"{escaped_body}\n\n"
+            f"📊 <b>{escaped_title}</b> (共 {char_count} 字符)\n\n"
+            f"{escaped_body}\n"
+            f"{warn_text}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"<i>🤖 是否需要在电脑当前光标处自动打出此报告？</i>"
         )
@@ -124,6 +134,9 @@ class TelegramBotService:
             [
                 {"text": "⌨️ 准备好了，直接打字", "callback_data": "action_ready_direct_type"},
                 {"text": "✏️ 我需要修改", "callback_data": "action_need_edit_report"},
+            ],
+            [
+                {"text": "⚡ 精炼浓缩（<800字符）", "callback_data": "action_condense_report"},
             ]
         ]
         return self._send_message(msg, reply_markup={"inline_keyboard": keyboard})
@@ -337,6 +350,105 @@ class TelegramBotService:
             self._send_message("已取消修改，保留原始报告内容。")
             return
 
+        elif data == "action_condense_report":
+            if not self.current_factuality_report:
+                self._send_message("⚠️ 暂无事实排查报告可供精炼。")
+                return
+            self._send_chat_action("typing")
+            self._send_message("⚡ 正在运用 AI 对评价报告进行深度精炼（压缩至 800 字符以内，保持核心要素与错漏）...")
+            try:
+                condensed = self.evaluator.condense_report(self.current_factuality_report)
+                if condensed:
+                    self.current_factuality_report = condensed
+                    self.pending_typing_text = condensed
+                    char_cnt = len(condensed)
+                    condensed_msg = (
+                        f"⚡ <b>精炼报告完成（共 {char_cnt} 字符）：</b>\n\n"
+                        f"{html.escape(condensed)}\n\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"<i>🤖 是否需要在电脑当前光标处自动打出此精炼报告？</i>"
+                    )
+                    keyboard = [
+                        [
+                            {"text": "⌨️ 准备好了，直接打字", "callback_data": "action_ready_direct_type"},
+                            {"text": "✏️ 我需要修改", "callback_data": "action_need_edit_report"},
+                        ]
+                    ]
+                    self._send_message(condensed_msg, reply_markup={"inline_keyboard": keyboard})
+                else:
+                    self._send_message("⚠️ 精炼未生成有效内容，保留原报告。")
+            except Exception as e:
+                logger.error(f"Error condensing report: {e}")
+                self._send_message(f"⚠️ 精炼失败: {e}")
+            return
+
+        # --- Typing Simulation Controls ---
+        elif data == "action_pause_typing":
+            if not HumanTyper.is_active():
+                self._send_message("⚠️ 当前没有正在运行的打字任务。")
+                return
+            HumanTyper.pause()
+            cur, total = HumanTyper.get_progress()
+            pct = int(cur / total * 100) if total > 0 else 0
+            pause_msg = (
+                f"⏸️ <b>打字已暂停！</b>\n"
+                f"当前进度：{cur}/{total} 字符 ({pct}%)\n"
+                f"电脑光标当前保留在目标输入框内。\n\n"
+                f"<i>点击下方按钮继续打字或终止：</i>"
+            )
+            pause_kb = [
+                [
+                    {"text": "▶️ 继续打字", "callback_data": "action_resume_typing"},
+                    {"text": "⏹️ 终止打字", "callback_data": "action_stop_typing"},
+                ]
+            ]
+            target_mid = message_id or self.active_typing_msg_id
+            if target_mid:
+                self._edit_message_text(target_mid, pause_msg, reply_markup={"inline_keyboard": pause_kb})
+            else:
+                self._send_message(pause_msg, reply_markup={"inline_keyboard": pause_kb})
+            return
+
+        elif data == "action_resume_typing":
+            if not HumanTyper.is_active():
+                self._send_message("⚠️ 打字任务已结束或未在运行。")
+                return
+            HumanTyper.resume()
+            cur, total = HumanTyper.get_progress()
+            pct = int(cur / total * 100) if total > 0 else 0
+            resume_msg = (
+                f"▶️ <b>正在电脑光标处继续打字中...</b>\n"
+                f"当前进度：{cur}/{total} 字符 ({pct}%)\n\n"
+                f"<i>如需干预，请点击下方按钮：</i>"
+            )
+            resume_kb = [
+                [
+                    {"text": "⏸️ 暂停打字", "callback_data": "action_pause_typing"},
+                    {"text": "⏹️ 终止打字", "callback_data": "action_stop_typing"},
+                ]
+            ]
+            target_mid = message_id or self.active_typing_msg_id
+            if target_mid:
+                self._edit_message_text(target_mid, resume_msg, reply_markup={"inline_keyboard": resume_kb})
+            else:
+                self._send_message(resume_msg, reply_markup={"inline_keyboard": resume_kb})
+            return
+
+        elif data == "action_stop_typing":
+            HumanTyper.stop()
+            cur, total = HumanTyper.get_progress()
+            stop_msg = (
+                f"⏹️ <b>打字已由您手动终止！</b>\n"
+                f"已输入进度：{cur}/{total} 字符。\n\n"
+                f"<i>📋 剩余完整文本已保留在电脑剪贴板，您也可以在电脑上按 <b>Cmd+V</b> 直接粘贴。</i>"
+            )
+            target_mid = message_id or self.active_typing_msg_id
+            if target_mid:
+                self._edit_message_text(target_mid, stop_msg, reply_markup={"inline_keyboard": []})
+            else:
+                self._send_message(stop_msg)
+            return
+
         # --- Typing Simulation Actions ---
         elif data == "action_start_typing":
             if not self.pending_typing_text:
@@ -440,18 +552,50 @@ class TelegramBotService:
     def _execute_typing_task(self, text: str, message_id: Optional[int]):
         """Runs typing simulation in background and notifies user on completion."""
         self.is_typing_active = True
+        self.active_typing_msg_id = message_id
+
+        ctrl_msg = (
+            f"⌨️ <b>正在电脑光标处打字中...</b>\n"
+            f"全文共 <b>{len(text)}</b> 字符。\n\n"
+            f"<i>💡 您可以随时通过下方按钮实时控制打字进度：</i>"
+        )
+        ctrl_keyboard = [
+            [
+                {"text": "⏸️ 暂停打字", "callback_data": "action_pause_typing"},
+                {"text": "⏹️ 终止打字", "callback_data": "action_stop_typing"},
+            ]
+        ]
+        if message_id:
+            self._edit_message_text(message_id, ctrl_msg, reply_markup={"inline_keyboard": ctrl_keyboard})
+        else:
+            self._send_message(ctrl_msg, reply_markup={"inline_keyboard": ctrl_keyboard})
+
         try:
             success, err_msg = HumanTyper.type_like_human(text, countdown_secs=3)
             if success:
-                done_msg = f"🎉 <b>模拟打字已完成！</b>（共输入 {len(text)} 字）"
-                self._send_message(done_msg)
+                done_msg = f"🎉 <b>模拟打字已顺利完成！</b>（共输入 {len(text)} 字符）"
+                target_mid = message_id or self.active_typing_msg_id
+                if target_mid:
+                    self._edit_message_text(target_mid, done_msg, reply_markup={"inline_keyboard": []})
+                else:
+                    self._send_message(done_msg)
             else:
-                self._send_message(f"⚠️ {err_msg}")
+                if "停止" in err_msg or "abort" in err_msg.lower():
+                    # Handled by action_stop_typing callback
+                    pass
+                else:
+                    fail_msg = f"⚠️ {err_msg}"
+                    target_mid = message_id or self.active_typing_msg_id
+                    if target_mid:
+                        self._edit_message_text(target_mid, fail_msg, reply_markup={"inline_keyboard": []})
+                    else:
+                        self._send_message(fail_msg)
         except Exception as e:
             logger.error(f"Typing execution failed: {e}")
             self._send_message(f"⚠️ 模拟打字出错: {e}")
         finally:
             self.is_typing_active = False
+            self.active_typing_msg_id = None
 
     def _finish_flow(self):
         self.state = "IDLE"

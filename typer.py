@@ -10,6 +10,7 @@ import time
 import random
 import logging
 import subprocess
+import threading
 import ctypes
 import ctypes.util
 from typing import Tuple, List, Optional
@@ -63,6 +64,50 @@ class HumanTyper:
     _cf = None
     _app_services = None
     _init_done = False
+
+    # Threading control for pause, resume, and abort
+    _pause_event = threading.Event()
+    _pause_event.set()
+    _stop_event = threading.Event()
+    _is_running = False
+    _is_paused = False
+    _current_index = 0
+    _total_chars = 0
+
+    @classmethod
+    def pause(cls):
+        """Pauses the active typing simulation immediately."""
+        cls._is_paused = True
+        cls._pause_event.clear()
+        logger.info("HumanTyper: pause signal triggered.")
+
+    @classmethod
+    def resume(cls):
+        """Resumes a paused typing simulation."""
+        cls._is_paused = False
+        cls._pause_event.set()
+        logger.info("HumanTyper: resume signal triggered.")
+
+    @classmethod
+    def stop(cls):
+        """Aborts the active typing simulation immediately."""
+        cls._stop_event.set()
+        cls._pause_event.set()  # Unblock if currently paused
+        cls._is_running = False
+        cls._is_paused = False
+        logger.info("HumanTyper: stop signal triggered.")
+
+    @classmethod
+    def is_paused(cls) -> bool:
+        return cls._is_paused
+
+    @classmethod
+    def is_active(cls) -> bool:
+        return cls._is_running
+
+    @classmethod
+    def get_progress(cls) -> Tuple[int, int]:
+        return cls._current_index, cls._total_chars
 
     @classmethod
     def _init_native(cls):
@@ -248,12 +293,22 @@ class HumanTyper:
                 "<i>📋 已自动为您将内容复制到电脑剪贴板，您可以在目标输入框直接按 <b>Cmd+V</b> 粘贴！</i>"
             )
             logger.warning("Accessibility permission is not trusted.")
-            return False, err_msg
+        # Reset control states
+        cls._pause_event.set()
+        cls._stop_event.clear()
+        cls._is_running = True
+        cls._is_paused = False
+        cls._current_index = 0
+        cls._total_chars = len(text)
 
         logger.info(f"Starting advanced human typing simulation in {countdown_secs}s for {len(text)} characters...")
 
         if countdown_secs > 0:
-            time.sleep(countdown_secs)
+            for _ in range(int(countdown_secs * 10)):
+                if cls._stop_event.is_set():
+                    cls._is_running = False
+                    return False, "打字已由用户手动停止"
+                time.sleep(0.1)
 
         punctuation_set = set("，。！？；：、,.!?;:\n\r\t")
         clause_breaks = set(",;，；")
@@ -266,6 +321,16 @@ class HumanTyper:
 
         try:
             while i < n:
+                if cls._stop_event.is_set():
+                    logger.info("Typing simulation aborted by user stop event.")
+                    return False, "打字已由用户手动停止"
+
+                while not cls._pause_event.is_set():
+                    if cls._stop_event.is_set():
+                        return False, "打字已由用户手动停止"
+                    time.sleep(0.1)
+
+                cls._current_index = i + 1
                 char = text[i]
                 next_char = text[i + 1] if i + 1 < n else ""
 
@@ -374,3 +439,6 @@ class HumanTyper:
         except Exception as e:
             logger.error(f"Error during typing simulation: {e}")
             return False, f"打字模拟中断: {e}（已将全文复制到剪贴板，可按 Cmd+V 粘贴）"
+        finally:
+            cls._is_running = False
+            cls._is_paused = False

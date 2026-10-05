@@ -147,11 +147,13 @@ STRICT FORMAT & LENGTH RULES:
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
 - NO bullet points (*, -) or numbered lists. Write flowing, natural sentences within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
-- WORD BUDGET CONSTRAINTS:
-  * Paragraph 1 (Conversational Dynamics): aim for ~100-150 words (strictly under 180 words).
-  * Paragraph 2 (Utility): aim for ~150-220 words (strictly under 250 words) to ensure all critical factual errors, legal mistakes, and reckless guidance across the entire dialogue are fully exposed with verified Ground Truth.
-  * Total combined word count strictly under 420 words.
-  * Deliver punchy, natural judgments. Cut verbose philosophical fluff, but KEEP all exact turn numbers, quotes of mistakes, and verified Ground Truth facts.
+- STRICT CHARACTER BUDGET CONSTRAINTS (STRICTLY UNDER 800 CHARACTERS TOTAL):
+  * TOTAL COMBINED REPORT LENGTH MUST BE STRICTLY UNDER 800 CHARACTERS (aim for ~600–780 characters total).
+  * Paragraph 1 (Conversational Dynamics): aim for ~280–360 characters (~45–55 words, strictly under 400 characters).
+  * Paragraph 2 (Utility): aim for ~320–420 characters (~50–65 words, strictly under 440 characters).
+  * ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):
+    - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples (好的模型举出一到两个示例带过即可). Absolutely DO NOT write long, redundant compliments!
+    - For the LOSING / FLAWED model: Dedicate 75-80% of the paragraph directly to where it failed (重点放在不好的模型哪里不好). Explicitly cite the exact Turn [X], quote its filler or factual mistake, and state the verified Ground Truth fact directly.
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -207,7 +209,15 @@ class FactualityEvaluator:
                 logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2)...")
                 result, error_msg = self._call_model(model, user_content)
                 if result:
-                    return self.clean_evaluation_report(result)
+                    cleaned = self.clean_evaluation_report(result)
+                    if len(cleaned) > 800:
+                        logger.info(f"Report length ({len(cleaned)} chars) exceeds 800 limit. Auto-condensing...")
+                        condensed = self.condense_report(cleaned)
+                        if condensed:
+                            cleaned = condensed
+                    if len(cleaned) > 800:
+                        cleaned = self._hard_truncate_to_char_limit(cleaned, max_chars=780)
+                    return cleaned
 
                 last_error = error_msg
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
@@ -222,6 +232,51 @@ class FactualityEvaluator:
 
         return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
 
+    def condense_report(self, text: str) -> str:
+        """
+        Condenses an existing evaluation report so that its total length is strictly under 800 characters
+        (aiming for ~600-740 characters), preserving the two-paragraph structure, opening phrases,
+        and asymmetric emphasis (short compliment for winner, detailed critique with turn/quotes/facts for loser).
+        """
+        if not text:
+            return ""
+
+        condense_prompt = (
+            "You are a strict, concise evaluation editor. Condense the following AI evaluation report so that its "
+            "TOTAL COMBINED LENGTH is STRICTLY UNDER 750 CHARACTERS (aim for 600-740 characters total).\n\n"
+            "CRITICAL FORMAT RULES:\n"
+            "1. Exactly two paragraphs separated by a single blank line:\n"
+            "   - Paragraph 1 MUST start with: For conversational dynamics I prefer [Model A/Model B/neither model].\n"
+            "   - Paragraph 2 MUST start with: For utility I prefer [Model A/Model B/neither model].\n"
+            "2. NO markdown headers, NO bullet points, NO conversational filler.\n"
+            "3. ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):\n"
+            "   - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples. Absolutely no redundant praise!\n"
+            "   - For the LOSING / FLAWED model: Dedicate 75-80% of paragraph space to its mistakes. Retain exact Turn [X], quotes of mistakes/fillers, and verified Ground Truth facts.\n"
+            "4. Total combined length across both paragraphs MUST be strictly under 780 characters.\n\n"
+            f"Original Report to Condense:\n{text.strip()}"
+        )
+
+        candidate_models = []
+        if self.primary_model:
+            candidate_models.append(self.primary_model)
+        for m in ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"]:
+            if m not in candidate_models:
+                candidate_models.append(m)
+
+        for model in candidate_models:
+            try:
+                res, err = self._call_model(model, condense_prompt)
+                if res:
+                    cleaned = self.clean_evaluation_report(res)
+                    if cleaned and len(cleaned) <= 800:
+                        return cleaned
+                    elif cleaned:
+                        return self._hard_truncate_to_char_limit(cleaned, max_chars=780)
+            except Exception as e:
+                logger.warning(f"Condense attempt with {model} failed: {e}")
+
+        return self._hard_truncate_to_char_limit(text, max_chars=780)
+
     @classmethod
     def clean_evaluation_report(cls, text: str) -> str:
         """
@@ -229,6 +284,7 @@ class FactualityEvaluator:
         1. For conversational dynamics I prefer...
         [blank line]
         2. For utility I prefer...
+        Enforces total length strictly under 800 characters.
         """
         if not text:
             return ""
@@ -263,16 +319,72 @@ class FactualityEvaluator:
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
         # Truncate each paragraph to strictly under word budget if necessary
-        p1 = cls._truncate_to_word_limit(p1, max_words=180)
+        p1 = cls._truncate_to_word_limit(p1, max_words=70)
 
         # Normalize internal spacing of paragraph 2
         if p2:
             p2 = re.sub(r"###.*$", "", p2).strip()
             p2 = re.sub(r"[\r\n]+", " ", p2)
             p2 = re.sub(r"\s{2,}", " ", p2).strip()
-            p2 = cls._truncate_to_word_limit(p2, max_words=260)
-            return f"{p1}\n\n{p2}"
+            p2 = cls._truncate_to_word_limit(p2, max_words=80)
+            combined = f"{p1}\n\n{p2}"
+            if len(combined) > 800:
+                combined = cls._hard_truncate_to_char_limit(combined, max_chars=800)
+            return combined
+
+        if len(p1) > 800:
+            p1 = cls._hard_truncate_to_char_limit(p1, max_chars=800)
         return p1
+
+    @classmethod
+    def _hard_truncate_to_char_limit(cls, text: str, max_chars: int = 800) -> str:
+        """
+        Hard-limits evaluation report to strictly max_chars while keeping the two-paragraph
+        structure and proper sentence endings intact.
+        """
+        if not text or len(text) <= max_chars:
+            return text
+
+        match = re.search(r"(For\s+utility\s+I\s+prefer.*)", text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            p1 = text[:match.start()].strip()
+            p2 = match.group(1).strip()
+        else:
+            parts = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+            if len(parts) >= 2:
+                p1 = parts[0]
+                p2 = " ".join(parts[1:])
+            else:
+                p1 = text.strip()
+                p2 = ""
+
+        max_p1 = int(max_chars * 0.46)
+        max_p2 = max_chars - max_p1 - 4
+
+        def truncate_para(para: str, limit: int) -> str:
+            if len(para) <= limit:
+                return para
+            sub = para[:limit]
+            s_match = re.search(r'^(.*[\.\!\?]["\']?)\s+', sub)
+            if s_match and len(s_match.group(1)) >= 50:
+                return s_match.group(1).strip()
+            w_match = re.search(r'^(.*\s)[^\s]*$', sub)
+            if w_match:
+                cand = w_match.group(1).strip()
+                if not re.search(r'[\.\!\?]["\']?$', cand):
+                    cand += "."
+                return cand
+            return sub.strip() + "."
+
+        p1_cut = truncate_para(p1, max_p1)
+        if p2:
+            p2_cut = truncate_para(p2, max_p2)
+            combined = f"{p1_cut}\n\n{p2_cut}"
+            if len(combined) > max_chars:
+                p2_cut = truncate_para(p2, max_chars - len(p1_cut) - 4)
+                combined = f"{p1_cut}\n\n{p2_cut}"
+            return combined
+        return p1_cut
 
     @staticmethod
     def _truncate_to_word_limit(paragraph: str, max_words: int = 150) -> str:
