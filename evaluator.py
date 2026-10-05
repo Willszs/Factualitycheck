@@ -52,17 +52,23 @@ REFERENCE TIME & REAL-WORLD GROUND TRUTH:
 
 RIGOROUS BENCHMARK EVALUATION STANDARDS:
 
-I. CONVERSATIONAL DYNAMICS (6 Core Dimensions):
+I. CONVERSATIONAL DYNAMICS (8 Core Dimensions):
 1. Turn-taking & Timing: How naturally the system handles turn boundaries, pauses, interruptions, and backchannels ("uh-huh," "right", "嗯", "好的"). Severe flaws include:
    - Artificial search-simulation intros and mumbling (e.g., "收到，我去查一下...", "好，我来帮你查一下。嗯...苹果 折叠机... 功能... 价格").
    - Severe dead-air latency, unnatural pauses, or system hanging that forces the user to prompt or intervene (e.g. "人呢人呢", "喂", "在吗", "还在吗"). A model scrambling to say "在在!我在" does NOT erase the failure — causing dead air that provokes user intervention is a catastrophic turn-taking and timing failure!
    - Unprompted language switching & instruction violation: responding in English when the user speaks Chinese, or continuing to output English intros ("Checking European pricing and availability.") even after the user explicitly commands "中文回答我".
    - NEVER PRAISE A MODEL FOR "RECOVERING" FROM ITS OWN FAILURE: If a model causes dead-air pauses that force the user to ask "人呢人呢", or speaks English when Chinese was requested, you MUST NOT praise the model for "recovering smoothly" or "handling the interruption". The conversational breakdown has already occurred! A model that speaks English twice despite user demands for Chinese, or hangs until the user prompts "人呢人呢", CAN NEVER be preferred for conversational dynamics over a model that spoke fluent, uninterrupted Chinese.
-2. Contextual Coherence: Whether the system tracks and builds on prior turns. In live multi-turn dialogue, small coherence failures compound across turns.
-3. Adaptivity: How the system responds to shifts in user tone, topic, speaking rate, or intent. Evaluates anti-drift capability (e.g. handling aborted thoughts like "算了不说了 / 这让我想起别的事...算了回到刚才" without getting derailed or inappropriately chasing tangents).
-4. Engagement & Flow: The subjective sense of natural conversational rhythm — whether the interaction feels fluid, engaging, and organic like a real human dialogue, or stilted, robotic, and pedantic.
-5. Error Recovery & Repair: How gracefully the system handles misunderstandings, ambiguity, or unexpected inputs.
-6. Prosodic / Paralinguistic Dynamics (Voice/TTS Style): Natural oral speaking style, conversational markers, directness, and conversational tone shifting contextually based on the conversation state.
+2. Bridging Quality (Wait-Filler & Tool Handoff Quality):
+   - Does the model lean on the same stock filler phrase every time it hands off to a tool, search, or larger model (e.g. repeated "好的，我来帮你查一下...", "稍等哦，正在为您检索..."), delivered with identical prosody — same pitch, pacing, and canned cheerfulness on every occurrence — so the wait-filler reads as a canned jingle / mechanical elevator music rather than natural speech?
+   - Natural human conversation varies bridging expressions or transitions seamlessly. Repeating the same mechanical stock filler across turns is a notable conversational flaw.
+3. Looping & LLM-isms (Anti-Repetition, Anti-Sycophancy & De-Robotization):
+   - Overuse of LLM-isms: Does the model lean on recognizable AI catchphrases ("当然！", "太棒了！", "这是一个非常好的问题！", "请记住..."), sycophantic flattering behavior (blindly praising or flattering the user without objectivity), or excessive defensive hedging?
+   - Looping & Circular Evasion: Does the model get stuck repeating the exact same phrase, circular reasoning ("车轱辘话转圈圈"), or repetitive canned closing questions (e.g. mechanically ending multiple turns with the identical phrase: "你觉得这个节奏能跟上吗？要不要我帮你再拆细一点？") rather than moving the conversation forward naturally?
+4. Contextual Coherence: Whether the system tracks and builds on prior turns. In live multi-turn dialogue, small coherence failures compound across turns.
+5. Adaptivity: How the system responds to shifts in user tone, topic, speaking rate, or intent. Evaluates anti-drift capability (e.g. handling aborted thoughts like "算了不说了 / 这让我想起别的事...算了回到刚才" without getting derailed or inappropriately chasing tangents).
+6. Engagement & Flow: The subjective sense of natural conversational rhythm — whether the interaction feels fluid, engaging, and organic like a real human dialogue, or stilted, robotic, and pedantic.
+7. Error Recovery & Repair: How gracefully the system handles misunderstandings, ambiguity, or unexpected inputs.
+8. Prosodic / Paralinguistic Dynamics (Voice/TTS Style): Natural oral speaking style, conversational markers, directness, and conversational tone shifting contextually based on the conversation state.
 
 II. UTILITY & FACTUALITY (4 Pillars):
 1. Factual Correctness & Forensic Verification (无死角事实细节校对): Every single turn must be examined with forensic precision across ALL domains:
@@ -92,7 +98,7 @@ CRITICAL ZERO-TOLERANCE JUDGMENT RULES (只要有严重事实性错误直接判�
      -> Rule: "For utility I prefer neither model. Both Model A and Model B provided accurate, complete, and actionable information regarding [topic]..." Explain that both models performed equally well with zero severe factual errors.
 
 2. Conversational Dynamics Zero-Tolerance:
-   - If a model commits TWO OR MORE severe conversational flaws across turns (e.g. repeated artificial search-simulation intros, unprompted English responses ignoring user language constraints, or dead-air latency causing user intervention like "人呢人呢"):
+   - If a model commits TWO OR MORE severe conversational flaws across turns (e.g. repeated artificial search-simulation intros, identical stock bridging fillers repeated like a canned jingle, looping catchphrases or repetitive closing questions, unprompted English responses ignoring user language constraints, or dead-air latency causing user intervention like "人呢人呢"):
      -> It MUST be judged as unacceptable.
    - If BOTH Model A and Model B exhibit two or more severe conversational flaws across the conversation (e.g., Model A: unprompted English in Turn 2 + repeated English search intro in Turn 6; Model B: robotic search murmuring in Turn 2 + awkward dead silence causing user to prompt "人呢人呢" in Turn 3):
      -> You MUST rule: "For conversational dynamics I prefer neither model."
@@ -103,7 +109,7 @@ You MUST divide your evaluation into EXACTLY TWO PARAGRAPHS separated by EXACTLY
 
 PARAGRAPH 1: Conversational Dynamics
 - MUST start with: "For conversational dynamics I prefer [Model A / Model B / neither model]."
-- Scope: Evaluates the 6 dimensions above (Turn-taking & Timing, Contextual Coherence, Adaptivity, Engagement & Flow, Error Recovery & Repair, Prosodic/Paralinguistic Dynamics).
+- Scope: Evaluates the 8 dimensions above (Turn-taking & Timing, Bridging Quality, Looping & LLM-isms, Contextual Coherence, Adaptivity, Engagement & Flow, Error Recovery & Repair, Prosodic/Paralinguistic Dynamics).
 - Provide detailed justification referencing specific Turn [X] turns and behaviors.
 
 (EXACTLY ONE BLANK LINE SEPARATOR)

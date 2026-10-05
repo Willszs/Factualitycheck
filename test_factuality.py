@@ -43,6 +43,8 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertIn("Model B", SYSTEM_PROMPT)
         self.assertIn("Ground Truth", SYSTEM_PROMPT)
         self.assertIn("Turn [X]", SYSTEM_PROMPT)
+        self.assertIn("Bridging Quality", SYSTEM_PROMPT)
+        self.assertIn("Looping", SYSTEM_PROMPT)
 
     def test_clean_evaluation_report(self):
         sample_raw = (
@@ -475,6 +477,18 @@ Skills tested
             self.assertFalse(HumanTyper.is_paused())
 
         bot._handle_callback_data("action_stop_typing", message_id=123)
+
+    def test_dialogue_auditor_bridging_and_looping(self):
+        from dialogue_auditor import DialogueAuditor
+        sample = (
+            "Turn 1: 我来看看哈，先这样。\n"
+            "Turn 2: 我来看看哈，再那样。要不要我帮你再拆细一点？\n"
+            "Turn 3: 好的。要不要我帮你再拆细一点？"
+        )
+        res = DialogueAuditor.audit_transcript(sample, "Model A")
+        violations_str = " ".join(res["violations"])
+        self.assertIn("Bridging Quality", violations_str)
+        self.assertIn("Looping", violations_str)
 
 
 if __name__ == "__main__":

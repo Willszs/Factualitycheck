@@ -49,6 +49,9 @@ class DialogueAuditor:
         violations: List[str] = []
         temporal_claims: List[str] = []
         statutes: List[str] = []
+        bridging_fillers: Dict[str, List[int]] = {}
+        closing_loops: Dict[str, List[int]] = {}
+        llmism_openings: Dict[str, List[int]] = {}
 
         now_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
@@ -78,6 +81,8 @@ class DialogueAuditor:
                 re.IGNORECASE,
             )
             if m_en_intro:
+                phrase = m_en_intro.group(0)
+                bridging_fillers.setdefault(phrase, []).append(num)
                 snippet = first_line[:40].replace("\n", " ")
                 violations.append(
                     f"Turn {num}: {model_name} emitted unprompted English search-simulation filler ('{snippet}...')."
@@ -89,10 +94,30 @@ class DialogueAuditor:
                 content[:60],
             )
             if m_cn_intro:
+                phrase = m_cn_intro.group(0)
+                bridging_fillers.setdefault(phrase, []).append(num)
                 snippet = content[:35].replace("\n", " ")
                 violations.append(
                     f"Turn {num}: {model_name} opened with artificial search-simulation delay filler ('{snippet}...')."
                 )
+
+            # 4b. Canned closing questions / Looping detection
+            m_loop = re.search(
+                r"(?:要不要我帮你把.*拆细一点|要不要我帮你看一下|你觉得这个节奏能跟上吗|要不要我帮你再拆细一点|你觉得这个安排怎么样|还有什么需要我补充的吗|你觉得这样可行吗)[？?]?$",
+                content.strip()
+            )
+            if m_loop:
+                closing_phrase = m_loop.group(0).rstrip("？?")
+                closing_loops.setdefault(closing_phrase, []).append(num)
+
+            # 4c. Recognizable LLM-ism catchphrases at turn opening
+            m_llmism = re.search(
+                r"^(?:当然啦！|当然！|没问题！|没问题，|这是一个非常好的问题|太棒了！|毫无疑问)",
+                content.strip()
+            )
+            if m_llmism:
+                llmism_phrase = m_llmism.group(0)
+                llmism_openings.setdefault(llmism_phrase, []).append(num)
 
             # 5. Temporal & Pre-order status claims
             m_order = re.search(
@@ -118,7 +143,7 @@ class DialogueAuditor:
                     f"If the model misstated the announcement date (e.g. claiming September 10 instead of September 9) or shipping date, you MUST cite Turn {num} and penalize under Utility!"
                 )
 
-            # 6. Real Legal & Trade Statutes Protection
+            # 7. Real Legal & Trade Statutes Protection
             for m_st in re.findall(
                 r"(\d+条款|Section\s*\d+|IEEPA|暂定税率|小额豁免|de minimis|CBAM|碳关税|第\d+条)",
                 content,
@@ -127,6 +152,29 @@ class DialogueAuditor:
                 clean_st = m_st.strip()
                 if clean_st and clean_st not in statutes:
                     statutes.append(clean_st)
+
+        # Check Bridging Quality (repeated stock wait-fillers across multiple turns)
+        for phrase, turn_nums in bridging_fillers.items():
+            if len(turn_nums) >= 2:
+                violations.append(
+                    f"Turns {turn_nums}: {model_name} repeatedly leaned on identical stock wait-filler ('{phrase}'), "
+                    f"sounding like a canned mechanical jingle rather than natural spoken dialogue (Bridging Quality failure)."
+                )
+
+        # Check Looping (repeated canned closing prompts)
+        for phrase, turn_nums in closing_loops.items():
+            if len(turn_nums) >= 2:
+                violations.append(
+                    f"Turns {turn_nums}: {model_name} fell into a repetitive closing loop, repeating the identical closing question "
+                    f"('{phrase}') across turns (Looping flaw)."
+                )
+
+        # Check LLM-isms
+        for phrase, turn_nums in llmism_openings.items():
+            if len(turn_nums) >= 2:
+                violations.append(
+                    f"Turns {turn_nums}: {model_name} repeatedly opened with robotic LLM-ism catchphrase ('{phrase}') (LLM-isms flaw)."
+                )
 
         return {
             "model_name": model_name,
