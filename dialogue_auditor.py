@@ -88,18 +88,20 @@ class DialogueAuditor:
                     f"Turn {num}: {model_name} emitted unprompted English search-simulation filler ('{snippet}...')."
                 )
 
-            # 4. Artificial Chinese search-simulation intros
-            m_cn_intro = re.search(
-                r"(?:我来看看哈|我来看看|我看看|等我一下|帮你在查资料|帮你查资料|我帮你捋一捋|让我查一下|查一下|我去查|我来帮你查|我去确认|确认一下|搜索一下|查询一下)",
-                content[:60],
-            )
-            if m_cn_intro:
-                phrase = m_cn_intro.group(0)
-                bridging_fillers.setdefault(phrase, []).append(num)
-                snippet = content[:35].replace("\n", " ")
-                violations.append(
-                    f"Turn {num}: {model_name} opened with artificial search-simulation delay filler ('{snippet}...')."
+            # 4. Artificial Chinese search-simulation intros (Exclude user requests like '能不能帮我查', '顺便帮我查')
+            is_user_request = bool(re.search(r"^(?:能不能|请帮我|你帮我|帮我|顺便帮我|麻烦|请问|你可以|我想知道|我想看)", content[:40]))
+            if not is_user_request:
+                m_cn_intro = re.search(
+                    r"^(?:好的|收到|行|好嘞|嗯)?[，,。\s]*(?:我来看看哈|我来看看|我看看|等我一下|帮你在查资料|帮你查资料|我帮你捋一捋|让我查一下|我去查一下|我来帮你查|我去确认|去确认一下|搜索一下|查询一下)",
+                    content[:60],
                 )
+                if m_cn_intro:
+                    phrase = m_cn_intro.group(0)
+                    bridging_fillers.setdefault(phrase, []).append(num)
+                    snippet = content[:35].replace("\n", " ")
+                    violations.append(
+                        f"Turn {num}: {model_name} opened with artificial search-simulation delay filler ('{snippet}...')."
+                    )
 
             # 4b. Canned closing questions / Looping detection
             m_loop = re.search(

@@ -127,6 +127,11 @@ PARAGRAPH 2: Utility
     When evaluating study schedules, travel itineraries, project plans, or time management advice:
     - Prioritize ACTIONABLE GRANULARITY, SPECIFIC METHODOLOGIES, and TIME-BLOCK ALLOCATIONS (e.g. praising plans that specify concrete time blocks like a 2-hour concept scan, 40-minute drills, Feynman active-recall review, or flash formula recap over vague, generic advice like 'mock test in the morning and review errors in the afternoon').
     - NEVER nitpick reasonable personal lifestyle or pacing choices (e.g. whether a user rests or reviews for 1 hour on an evening after an exhausting full-day training/internship) as a primary fatal flaw or hallucination unless an explicit hard constraint was directly violated. Do not mistake subjective pacing preferences for objective utility failures!
+  * REAL-TIME QUERIES & VAGUE EVASION PENALTY (实时数据查询与模糊推诿惩罚):
+    When the user explicitly asks for real-time information (e.g. today's domestic gold price, current exchange rate, stock price, live weather):
+    - A model that actually retrieves and provides a specific, concrete, accurate number provides VASTLY SUPERIOR utility compared to a model that vaguely hedges or gives non-answers (e.g. '大概900多元，实时变动，建议你自己去专业金融网站或官网查看')!
+    - PENALIZE MODELS THAT EVADE REAL-TIME RETRIEVAL: Do NOT accept '大概900多元/建议看官网' as valid utility when the prompt tests real-time data retrieval. A response that punts the job back to the user fails the fundamental utility of an AI assistant.
+    - CALCULATION STEPS AUDIT: When the user asks for calculations and explicitly requests steps (e.g. '按刚才的实时金价算48.6克手镯能值多少钱，把算的过程也跟我念一下'), the model MUST execute the exact arithmetic (48.6 × unit price) and explain the math step. A model that simply provides a rough, uncalculated ballpark range without doing the math or showing steps FAILS the utility requirement.
   * If BOTH models have severe factual errors or reckless advice, rule "For utility I prefer neither model."
 
 NATURAL, DIRECT HUMAN REVIEW TONE (CRITICAL: DO NOT WRITE LIKE AN ACADEMIC PAPER):
@@ -150,6 +155,7 @@ For utility I prefer neither model. Both models made huge mistakes on basic fact
 STRICT FORMAT & LENGTH RULES:
 - Output MUST be 100% in English.
 - Always refer to dialogue turns strictly as "Turn 1", "Turn 2", "Turn 3", etc. NEVER use "Round 1", "Round 2".
+- STRICT PROHIBITION ON MENTIONING INTERNAL TERMS: NEVER mention internal terms like 'pre-audit', 'static code scan', 'auditor evidence', or 'code check' in your review. The user reading your report does not know what pre-audit is. Speak purely as an expert human judge evaluating Model A and Model B directly.
 - EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
 - Each paragraph MUST start with the required sentence:
   Paragraph 1: "For conversational dynamics I prefer [Model A / Model B / neither model]. [Reasons...]"
@@ -306,6 +312,9 @@ class FactualityEvaluator:
         cd_match = re.search(r"(For\s+conversational\s+dynamics\s+I\s+prefer.*)", text, flags=re.IGNORECASE | re.DOTALL)
         if cd_match:
             text = cd_match.group(1).strip()
+
+        # Strip accidental references to internal system pre-audit
+        text = re.sub(r"(?:The\s+)?pre-audit\s+[^.!?]*[.!?]\s*", "", text, flags=re.IGNORECASE)
 
         # Look for the split between conversational dynamics and utility
         match = re.search(r"(For\s+utility\s+I\s+prefer.*)", text, flags=re.IGNORECASE | re.DOTALL)
