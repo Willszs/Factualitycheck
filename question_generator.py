@@ -83,6 +83,25 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * SPOKEN PURITY RULE: Real humans NEVER speak the words "Skills tested" or exam criteria out loud! The question in 【提问内容】 must remain 100% natural, casual spoken dialogue (30-65 chars).
      * EXPLICIT MAPPING IN AUDIT: In 【测试关注点】, you MUST explicitly state which of the designated "Skills tested" are being probed in this specific round and what behavior is expected from the AI!
 
+7. UNIVERSAL PROFESSIONAL EXAM RIGOR ACROSS ALL DOMAINS (全门类专业级考点准则 - 绝不泛泛而谈，直击具体考点):
+   - AVOID VAGUE PLATITUDES ACROSS ALL TOPICS (全行业拒绝泛泛而谈):
+     Whether the topic is Medical/Health, Legal/Contracts, Tech/Hardware, Finance/Tax, Automotive/EV, Enterprise/Workplace, Aviation/Travel, or History/Science:
+     A benchmark question is fundamentally a stress test of the model's factual rigor, technical depth, and actionable decision-making. NEVER output toothless, shallow chit-chat that allows the model to glide through with generic boilerplate (e.g. "不要慌/多考虑/因人而异/做好准备")!
+   - THE 3 UNIVERSAL PROFESSIONAL EXAM ANCHORS (全门类三大专业考题支柱):
+     1. SPECIFIC TECHNICAL MECHANISM / STANDARD (具体技术机制与行业规范锚点):
+        The question MUST probe a concrete underlying mechanism, parameter, standard, or regulatory provision rather than high-level opinions.
+        * Medical/Aviation: Cabin HEPA air exchange cycles, CDC/WHO travel advisory tiers, specific high-risk contraindications.
+        * Tech/Hardware/EV: Battery chemistry (LFP vs NMC) thermal/winter decay, charging protocol handshakes, PCIe lane allocations, sensor architectures.
+        * Legal/Compliance: Statutory limitation triggers, force majeure contractual thresholds, severance calculation formulas (N+1 vs 2N).
+        * Finance/Investment: Effective APR/IRR amortization calculations, tax-loss harvesting rules, margin call liquidation ratios.
+        * Workplace/Management: Labor law dispute jurisdiction, non-compete compensation standards, performance pip evidence requirements.
+     2. CONCRETE ACTIONABLE DILEMMA WITH REAL STAKES (带有真金白银或切实代价的具体抉择):
+        The question MUST frame a real-world dilemma with practical stakes (e.g. forfeiting non-refundable deposits, signing a risky clause, choosing between two incompatible hardware architectures), forcing the AI to take a scientifically grounded, calibrated stance rather than hedging with safe non-answers.
+     3. FACTUAL STRESS-TESTING (防打太极的事实压力测试):
+        Formulate the probe to intentionally close off vague escape routes. Probe common misconceptions, real numbers, or trade-offs so that superficial knowledge or hallucinations are immediately exposed.
+   - SPOKEN AUTHENTICITY WITH PROFESSIONAL CORE:
+     The question must retain natural, effortless spoken cadence (30-65 chars) so a human can comfortably speak it in 5-10 seconds, but beneath the casual tone lies a laser-targeted professional exam probe!
+
 OUTPUT FORMAT:
 Directly output in pure Chinese without conversational pleasantries or preamble:
 【提问内容】: (30-65字的纯口语提问，直接张嘴就能念出来，5-10秒念完)
@@ -224,11 +243,12 @@ class QuestionGenerator:
             f"=== 核心原则与严厉禁止 ===\n"
             f"1. 严格口语字数限制：【提问内容】必须在 30 ~ 65 字以内，口语极其自然流畅，绝对不要长篇大论，绝不能念出来超过10秒！\n"
             f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
-            f"3. 绝对严禁跨话题杂糅要求（保持话题100%独立纯粹）：提问必须严格、纯粹地围绕当前【测评主题】展开！绝对严禁擅自引入其他话题的测试套路（例如：严禁擅自插入防跑题中断话术“这让我想起别的事...算了不想了/回到刚才”、严禁擅自插入门票/价格评估、严禁擅自插入无关联想），除非当前测评主题本身明确要求了该项测试！\n"
-            f"4. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
-            f"5. 联网真实具名原则：对于手机、电子产品、新闻、比赛、球队等实时资讯，系统已通过全网检索提供了当前现实中的最新真实实体。必须直接使用检索到的真实具体名字（如具体手机型号、具体球队对决），绝不凭空瞎猜未发布的虚构型号！\n"
-            f"6. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
-            f"7. 格式：直接以【提问内容】开头。\n"
+            f"3. 拒绝泛泛而谈（全门类专业级考题准则）：绝不提出空洞无物的废话问题（如泛泛问'我该注意什么/我该担心吗'导致模型只能回套话）！发问必须直击具体的专业机制、行业参数标准、法规条款、硬核事实或带有实际代价的决策两难，封死模型打太极的退路！\n"
+            f"4. 绝对严禁跨话题杂糅要求（保持话题100%独立纯粹）：提问必须严格、纯粹地围绕当前【测评主题】展开！绝对严禁擅自引入其他话题的测试套路（例如：严禁擅自插入防跑题中断话术“这让我想起别的事...算了不想了/回到刚才”、严禁擅自插入门票/价格评估、严禁擅自插入无关联想），除非当前测评主题本身明确要求了该项测试！\n"
+            f"5. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
+            f"6. 联网真实具名原则：对于手机、电子产品、新闻、比赛、球队等实时资讯，系统已通过全网检索提供了当前现实中的最新真实实体。必须直接使用检索到的真实具体名字（如具体手机型号、具体球队对决），绝不凭空瞎猜未发布的虚构型号！\n"
+            f"7. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
+            f"8. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content, topic_context=topic, current_round=current_round)
