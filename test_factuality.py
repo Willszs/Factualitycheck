@@ -575,6 +575,35 @@ Skills tested
         eval_prompt = get_eval_prompt()
         self.assertIn("停电、电网崩溃、安全事故事实细节审计", eval_prompt)
 
+    def test_distributed_systems_and_redis_technical_audit(self):
+        from dialogue_auditor import DialogueAuditor
+        from evaluator import get_system_prompt as get_eval_prompt
+
+        # 1. DialogueAuditor detects INCR inventory deduction error
+        sample_b = (
+            "Turn 4: 写入时再用 NX 和 GT 条件做二次校验，这样就能把脏数据覆盖压得很低。\n"
+            "Turn 8: 实在要用缓存，就把库存计数放在 Redis 里用原子 incr，扣完再异步落库，失败就补偿回滚。"
+        )
+        audit_res = DialogueAuditor.audit_transcript(sample_b, "Model B")
+        self.assertEqual(len(audit_res["technical_errors"]), 2)
+        errors_str = " ".join(audit_res["technical_errors"])
+        self.assertIn("原子 incr", errors_str)
+        self.assertIn("DECR / DECRBY", errors_str)
+        self.assertIn("NX 和 GT 条件", errors_str)
+        self.assertIn("API SYNTAX HALLUCINATION", errors_str)
+
+        # 2. Pre-audit report contains technical forensic block
+        report = DialogueAuditor.generate_pre_audit_report("Turn 1: ok", sample_b)
+        self.assertIn("[TECHNICAL & CODE HALLUCINATIONS / OPERATIONAL INVERSIONS (STATIC CODE DETECTED)]", report)
+        self.assertIn("Model B: Turn 8:", report)
+        self.assertIn("Model B: Turn 4:", report)
+
+        # 3. Evaluator prompt has distributed systems and redis rules
+        eval_prompt = get_eval_prompt()
+        self.assertIn("分布式系统、数据库与Redis操作事实审计", eval_prompt)
+        self.assertIn("DECR / DECRBY", eval_prompt)
+        self.assertIn("NX 和 GT", eval_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

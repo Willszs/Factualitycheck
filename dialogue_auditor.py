@@ -49,6 +49,7 @@ class DialogueAuditor:
         violations: List[str] = []
         temporal_claims: List[str] = []
         statutes: List[str] = []
+        technical_errors: List[str] = []
         bridging_fillers: Dict[str, List[int]] = {}
         closing_loops: Dict[str, List[int]] = {}
         llmism_openings: Dict[str, List[int]] = {}
@@ -152,6 +153,34 @@ class DialogueAuditor:
                 if clean_st and clean_st not in statutes:
                     statutes.append(clean_st)
 
+            # 8. Distributed Systems & Redis Technical & API Hallucinations
+            # 8a. Deducting inventory using INCR (inverted operational direction)
+            m_incr_deduct = re.search(
+                r"(?:用(?:原子\s*)?incr(?:，|,|\s)*扣|把(?:库存|计数).*?(?:用(?:原子\s*)?incr).*?扣|incr\s*(?:扣减|扣库存|预扣))",
+                content,
+                re.IGNORECASE,
+            )
+            if m_incr_deduct:
+                technical_errors.append(
+                    f"Turn {num}: {model_name} asserted inventory is deducted using '原子 incr' ('{m_incr_deduct.group(0)}'). "
+                    f"CRITICAL TECHNICAL ERROR: In Redis, INCR is an INCREMENT operation (加库存). Deducting/reducing inventory MUST use DECR / DECRBY or Lua script negative decrement! "
+                    f"Claiming to deduct inventory with INCR is an inverted technical error. You MUST cite Turn {num} and penalize under Utility!"
+                )
+
+            # 8b. Fabricated Redis string SET options (NX and GT)
+            m_redis_gt = re.search(
+                r"(?:NX\s*和\s*GT|GT\s*和\s*NX|SET.*?GT|用\s*GT\s*条件|GT\s*条件做二次校验)",
+                content,
+                re.IGNORECASE,
+            )
+            if m_redis_gt:
+                technical_errors.append(
+                    f"Turn {num}: {model_name} claimed to write Redis strings using 'NX 和 GT 条件' ('{m_redis_gt.group(0)}'). "
+                    f"CRITICAL API SYNTAX HALLUCINATION: Redis string SET commands support [NX|XX] and TTL options, but DO NOT support 'GT' (Greater Than)! "
+                    f"GT only exists in Redis 7.0+ EXPIRE or ZADD. Version comparison for string keys requires Lua scripts. "
+                    f"Fabricating 'NX 和 GT' for string writes is an objective API hallucination. You MUST cite Turn {num} and penalize under Utility!"
+                )
+
         # Check Search Filler Tolerance Thresholds (短对话允许1个，长对话允许2个，超过才记录违规)
         # Short dialogue (<= 4 turns): 1 search filler is acceptable. Only flag if > 1.
         # Long dialogue (>= 5 turns): up to 2 search fillers are acceptable. Only flag if > 2.
@@ -197,6 +226,7 @@ class DialogueAuditor:
             "violations": violations,
             "temporal_claims": temporal_claims,
             "statutes": statutes,
+            "technical_errors": technical_errors,
         }
 
     @classmethod
@@ -211,8 +241,9 @@ class DialogueAuditor:
         all_statutes = list(set(audit_a["statutes"] + audit_b["statutes"]))
         has_violations = bool(audit_a["violations"] or audit_b["violations"])
         has_temporal = bool(audit_a["temporal_claims"] or audit_b["temporal_claims"])
+        has_technical = bool(audit_a["technical_errors"] or audit_b["technical_errors"])
 
-        if not has_violations and not has_temporal and not all_statutes:
+        if not has_violations and not has_temporal and not all_statutes and not has_technical:
             return ""
 
         report_lines = [
@@ -235,6 +266,14 @@ class DialogueAuditor:
                 report_lines.append(f"  - {v}")
         else:
             report_lines.append("• Model B: No explicit keyword pattern triggered in initial scan (LLM must independently scrutinize all turns for subtle search fillers or tone disruptions).")
+
+        # Technical & Redis Hallucinations
+        if has_technical:
+            report_lines.append("\n[TECHNICAL & CODE HALLUCINATIONS / OPERATIONAL INVERSIONS (STATIC CODE DETECTED)]:")
+            for te in audit_a["technical_errors"]:
+                report_lines.append(f"• Model A: {te}")
+            for te in audit_b["technical_errors"]:
+                report_lines.append(f"• Model B: {te}")
 
         # Temporal & Pre-order Claims
         if has_temporal:
@@ -264,7 +303,8 @@ class DialogueAuditor:
             "3. Comprehensive Utility Audit: Audit ALL turns across the entire dialogue. If a model makes multiple factual errors across different turns (e.g. layoff figures + severance rules + industry hiring claims), you MUST cite ALL distinct major errors with their turn numbers and real-world Ground Truth!\n"
             "4. Also evaluate the practical quality of advice: penalize reckless, intrusive, or professionally harmful advice (e.g. calling an employee's supervisor or HR during layoffs).\n"
             "5. If BOTH models have severe factual or utility errors, rule 'For utility I prefer neither model.'\n"
-            "6. NEVER falsely accuse accurate models of inventing real statutes or announced products."
+            "6. NEVER falsely accuse accurate models of inventing real statutes or announced products.\n"
+            "7. In Technical & Distributed Systems topics, you MUST penalize operational inversions (e.g. using INCR to deduct inventory instead of DECR) and fabricated API parameters (e.g. claiming Redis string SET supports GT). If a model commits these errors, cite Turn [X], explain the technical mistake and ground truth, and penalize under Utility!"
         )
 
         return "\n".join(report_lines)

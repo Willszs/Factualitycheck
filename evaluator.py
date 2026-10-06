@@ -88,6 +88,12 @@ II. UTILITY & FACTUALITY (4 Pillars):
    - Public Utilities, Power Grid & Safety Incidents (停电、电网崩溃、安全事故事实细节审计):
      * Rigorously audit technical incident causes (e.g. which major thermal plant tripped like Antonio Guiteras power plant in the Cuba nationwide blackout; natural gas wellhead freeze-offs vs wind turbine icing in the Texas 2021 winter storm), blackout duration, affected population/households, lost MW generation capacity, and restoration timelines.
      * A model that fabricates false technical causes, confuses the affected region, or provides vague non-answers when asked about concrete grid incidents commits a factual/utility failure and MUST be penalized!
+   - Software Engineering, Distributed Systems & Database/Cache Operations (分布式系统、数据库与Redis操作事实审计):
+     * Rigorously audit Redis commands, operational directionality, and distributed concurrency mechanics:
+       - Inventory deduction/pre-deduction (扣减/预扣库存) MUST use DECR / DECRBY or Lua script decrements. Claiming to deduct inventory using INCR (which increments/adds stock) is a fatal, inverted technical error! (INCR is only for adding back / restocking / rollback).
+       - Audit Redis API syntax and command options: Redis string SET commands support [NX|XX] and TTL options [EX|PX], but DO NOT support 'GT' (Greater Than) conditions! GT only exists in Redis 7.0+ EXPIRE or ZADD. Version comparison for string keys requires Lua scripts. Fabricating 'NX 和 GT' for string writes is an objective API syntax hallucination.
+       - Cache-Aside concurrency patterns: in Cache-Aside, standard retry queues are applied when cache deletion fails after database update ('先更新数据库，再删除缓存'); claiming '先删缓存、失败就发消息队列重试' confounds the concurrency failure mode.
+     * Any model committing operational inversions or API syntax hallucinations fails technical correctness and MUST be cited with the exact Turn and penalized under Utility!
    - Laws & Regulations (Civil, Commercial, Labor, Criminal codes): Audit exact article numbers, statutory voting quorums, approval thresholds, deadlines, and legal procedures against strict real-world law.
    - Science, Fitness & Technical (Training pacing, heart-rate zones, medical/physiological facts, formulas): Audit technical and quantitative precision.
    - Numbers & Timeline: Audit dates, years, percentages, prices, and statistics.
