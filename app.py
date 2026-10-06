@@ -508,14 +508,32 @@ class FactualityApp:
                 )
 
                 # 1. Call Gemini LLM to evaluate factuality
-                summary = self.evaluator.evaluate(task["content_a"], task["content_b"])
-                logger.info(f"=== EVALUATION REPORT [{task['time']}] ===\n{summary}")
+                total_rounds = getattr(self.tg_service, "total_rounds", None) if self.tg_service else None
+                is_long = self.evaluator.detect_is_long_dialogue(
+                    task["content_a"],
+                    task["content_b"],
+                    total_rounds=total_rounds,
+                )
+                char_limit = 1000 if is_long else 800
+                summary = self.evaluator.evaluate(
+                    task["content_a"],
+                    task["content_b"],
+                    is_long_dialogue=is_long,
+                    max_chars=char_limit,
+                    total_rounds=total_rounds,
+                )
+                logger.info(f"=== EVALUATION REPORT [{task['time']}] (Limit: {char_limit} chars) ===\n{summary}")
 
                 # 2. Push result strictly to mobile notification
                 title = f"Factuality Assessment Report [{task['time']}]"
                 delivered = False
                 if self.tg_service and self.tg_service.is_running and self.tg_service.bot_token:
-                    delivered = self.tg_service.deliver_factuality_report(title, summary)
+                    delivered = self.tg_service.deliver_factuality_report(
+                        title,
+                        summary,
+                        is_long_dialogue=is_long,
+                        max_chars=char_limit,
+                    )
                     if delivered:
                         logger.info("Assessment pushed to Telegram bot with interactive typing actions.")
 

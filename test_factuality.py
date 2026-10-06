@@ -714,6 +714,59 @@ Skills tested
             self.assertEqual(bot.total_rounds, 4)
             self.assertEqual(bot.state, "INTERACTIVE_QUESTIONS")
 
+    def test_dynamic_character_limits_for_short_and_long_dialogues(self):
+        from evaluator import FactualityEvaluator, get_system_prompt
+        from telegram_bot import TelegramBotService
+
+        # 1. System prompt constraints reflect 800 for short and 1000 for long
+        prompt_short = get_system_prompt(is_long_dialogue=False)
+        self.assertIn("STRICTLY UNDER 800 CHARACTERS", prompt_short)
+        self.assertIn("aim for ~600–780 characters total", prompt_short)
+
+        prompt_long = get_system_prompt(is_long_dialogue=True)
+        self.assertIn("STRICTLY UNDER 1000 CHARACTERS", prompt_long)
+        self.assertIn("aim for ~750–980 characters total", prompt_long)
+
+        # 2. detect_is_long_dialogue detection
+        evaluator = FactualityEvaluator(self.sample_config)
+        self.assertFalse(evaluator.detect_is_long_dialogue("Turn 1: hello", "Turn 1: world"))
+        self.assertFalse(evaluator.detect_is_long_dialogue("Turn 1: a\nTurn 2: b\nTurn 3: c", "Turn 1: a\nTurn 2: b"))
+        self.assertTrue(evaluator.detect_is_long_dialogue("Turn 1: a\nTurn 2: b\nTurn 3: c\nTurn 4: d", "Turn 1: a"))
+        self.assertTrue(evaluator.detect_is_long_dialogue("Round 1: a\nRound 4: d", "Round 1: a"))
+        self.assertTrue(evaluator.detect_is_long_dialogue("短文本", "短文本", total_rounds=5))
+        self.assertFalse(evaluator.detect_is_long_dialogue("短文本", "短文本", total_rounds=3))
+
+        # 3. clean_evaluation_report obeys 800 vs 1000
+        p1 = "For conversational dynamics I prefer Model A. " + ("Model A spoke naturally and with clear cadence. " * 14)
+        p2 = "For utility I prefer Model A. " + ("Model B failed to give correct earthquake coordinates and dates. " * 14)
+        combined = f"{p1}\n\n{p2}"
+        self.assertGreater(len(combined), 1100)
+
+        cleaned_800 = FactualityEvaluator.clean_evaluation_report(combined, max_chars=800)
+        self.assertLessEqual(len(cleaned_800), 800)
+
+        cleaned_1000 = FactualityEvaluator.clean_evaluation_report(combined, max_chars=1000)
+        self.assertLessEqual(len(cleaned_1000), 1000)
+        self.assertGreater(len(cleaned_1000), 800)
+
+        # 4. TelegramBotService report delivery with dynamic limits
+        bot = TelegramBotService(self.sample_config)
+        with patch.object(bot, "_send_message") as mock_send:
+            bot.deliver_factuality_report("Short Report", "For conversational dynamics I prefer Model A.\n\nFor utility I prefer Model A.", is_long_dialogue=False)
+            self.assertEqual(bot.current_report_max_chars, 800)
+            call_kwargs = mock_send.call_args[1]
+            inline_keyboard = call_kwargs["reply_markup"]["inline_keyboard"]
+            condense_btn = inline_keyboard[1][0]
+            self.assertEqual(condense_btn["text"], "⚡ 精炼浓缩（<800字符）")
+
+        with patch.object(bot, "_send_message") as mock_send:
+            bot.deliver_factuality_report("Long Report", "For conversational dynamics I prefer Model A.\n\nFor utility I prefer Model A.", is_long_dialogue=True)
+            self.assertEqual(bot.current_report_max_chars, 1000)
+            call_kwargs = mock_send.call_args[1]
+            inline_keyboard = call_kwargs["reply_markup"]["inline_keyboard"]
+            condense_btn = inline_keyboard[1][0]
+            self.assertEqual(condense_btn["text"], "⚡ 精炼浓缩（<1000字符）")
+
 
 if __name__ == "__main__":
     unittest.main()

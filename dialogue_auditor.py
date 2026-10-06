@@ -14,12 +14,12 @@ class DialogueAuditor:
     def parse_turns(cls, transcript: str) -> List[Tuple[int, str]]:
         """
         Parses multi-turn transcripts into a list of (turn_number, text_content).
-        Supports '第 X 轮' and 'Turn X' formats.
+        Supports '第 X 轮', 'Turn X', 'Round X', and 'R X' formats.
         """
         if not transcript or not transcript.strip():
             return []
 
-        pattern = r"(?:^|\n)(?:第\s*(\d+)\s*轮|Turn\s*(\d+))[:\s]*\n?"
+        pattern = r"(?:^|\n)(?:第\s*|Turn\s*|Round\s*|R)(\d+)(?:\s*轮|/\d+)?[:\s]*\n?"
         parts = re.split(pattern, transcript.strip())
 
         turns: List[Tuple[int, str]] = []
@@ -29,14 +29,14 @@ class DialogueAuditor:
 
         idx = 1
         while idx < len(parts):
-            num_str = parts[idx] or parts[idx + 1]
-            content = parts[idx + 2].strip() if idx + 2 < len(parts) else ""
+            num_str = parts[idx]
+            content = parts[idx + 1].strip() if idx + 1 < len(parts) else ""
             if num_str and content:
                 try:
                     turns.append((int(num_str), content))
                 except ValueError:
                     pass
-            idx += 3
+            idx += 2
 
         return turns
 

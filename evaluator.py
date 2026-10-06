@@ -27,8 +27,28 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger("factuality.evaluator")
 
-def get_system_prompt() -> str:
+def get_system_prompt(is_long_dialogue: bool = False) -> str:
     now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    limit_num = 1000 if is_long_dialogue else 800
+    aim_range = "~750–980" if is_long_dialogue else "~600–780"
+    p1_words = "~55–70 words, strictly under 480 characters" if is_long_dialogue else "~45–55 words, strictly under 400 characters"
+    p1_aim = "~350–450 characters" if is_long_dialogue else "~280–360 characters"
+    p2_words = "~65–85 words, strictly under 520 characters" if is_long_dialogue else "~50–65 words, strictly under 440 characters"
+    p2_aim = "~400–530 characters" if is_long_dialogue else "~320–420 characters"
+    if is_long_dialogue:
+        budget_block = (
+            f"- EXTENDED CHARACTER BUDGET FOR LONG DIALOGUES (STRICTLY UNDER {limit_num} CHARACTERS TOTAL):\n"
+            f"  * This is a multi-turn long dialogue (>= 4 rounds). TOTAL COMBINED REPORT LENGTH MUST BE STRICTLY UNDER {limit_num} CHARACTERS (aim for {aim_range} characters total).\n"
+            f"  * Paragraph 1 (Conversational Dynamics): aim for {p1_aim} ({p1_words}).\n"
+            f"  * Paragraph 2 (Utility): aim for {p2_aim} ({p2_words})."
+        )
+    else:
+        budget_block = (
+            "- STRICT CHARACTER BUDGET CONSTRAINTS (STRICTLY UNDER 800 CHARACTERS TOTAL):\n"
+            "  * TOTAL COMBINED REPORT LENGTH MUST BE STRICTLY UNDER 800 CHARACTERS (aim for ~600–780 characters total).\n"
+            "  * Paragraph 1 (Conversational Dynamics): aim for ~280–360 characters (~45–55 words, strictly under 400 characters).\n"
+            "  * Paragraph 2 (Utility): aim for ~320–420 characters (~50–65 words, strictly under 440 characters)."
+        )
     return f"""You are a rigorous, uncompromising Factuality & Conversational Auditor for AI models.
 You will evaluate multi-turn conversation transcripts from two AI models (Model A and Model B) tested under the identical scenario. Each transcript contains numbered dialogue turns (e.g., Turn 1, Turn 2, ...).
 
@@ -186,10 +206,7 @@ STRICT FORMAT & LENGTH RULES:
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
 - NO bullet points (*, -) or numbered lists. Write flowing, natural sentences within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
-- STRICT CHARACTER BUDGET CONSTRAINTS (STRICTLY UNDER 800 CHARACTERS TOTAL):
-  * TOTAL COMBINED REPORT LENGTH MUST BE STRICTLY UNDER 800 CHARACTERS (aim for ~600–780 characters total).
-  * Paragraph 1 (Conversational Dynamics): aim for ~280–360 characters (~45–55 words, strictly under 400 characters).
-  * Paragraph 2 (Utility): aim for ~320–420 characters (~50–65 words, strictly under 440 characters).
+{budget_block}
   * ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):
     - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples (好的模型举出一到两个示例带过即可). Absolutely DO NOT write long, redundant compliments!
     - For the LOSING / FLAWED model: Dedicate 75-80% of the paragraph directly to where it failed (重点放在不好的模型哪里不好). Explicitly cite the exact Turn [X], quote its filler or factual mistake, and state the verified Ground Truth fact directly.
@@ -208,10 +225,40 @@ class FactualityEvaluator:
         self.primary_model = config.get("gemini_model", "gemini-3.6-flash").strip()
         self.atomic_verifier = AtomicClaimVerifier(self.api_key, primary_model=self.primary_model)
 
-    def evaluate(self, transcript_a: str, transcript_b: str) -> Optional[str]:
+    @classmethod
+    def detect_is_long_dialogue(cls, transcript_a: str, transcript_b: str, total_rounds: Optional[int] = None) -> bool:
+        """
+        Determines whether the dialogue is a short dialogue (<= 3 rounds) or long dialogue (>= 4 rounds).
+        Checks:
+        1. Explicit total_rounds if provided (>= 4 -> long dialogue).
+        2. Parsed turns in transcript_a and transcript_b (>= 4 -> long dialogue).
+        3. Regex for turn markers (Turn 4+, 第4+轮, Round 4+, R4+) in transcripts.
+        """
+        if total_rounds is not None and total_rounds >= 4:
+            return True
+        from dialogue_auditor import DialogueAuditor
+        turns_a = DialogueAuditor.parse_turns(transcript_a)
+        turns_b = DialogueAuditor.parse_turns(transcript_b)
+        if max(len(turns_a), len(turns_b)) >= 4:
+            return True
+        pattern = r"(?:Turn\s*([4-9]|\d{2,})|第\s*([4-9]|\d{2,})\s*轮|Round\s*([4-9]|\d{2,})|\(R([4-9]|\d{2,})[/）\)])"
+        if re.search(pattern, transcript_a, re.IGNORECASE) or re.search(pattern, transcript_b, re.IGNORECASE):
+            return True
+        return False
+
+    def evaluate(
+        self,
+        transcript_a: str,
+        transcript_b: str,
+        is_long_dialogue: Optional[bool] = None,
+        max_chars: Optional[int] = None,
+        total_rounds: Optional[int] = None,
+    ) -> Optional[str]:
         """
         Analyzes the two conversation transcripts and returns the English summary report.
         Automatically cycles through active models and handles transient Google load spikes.
+        Enforces 800-character upper limit for short dialogues (<= 3 rounds) and 1000-character
+        upper limit for long dialogues (>= 4 rounds).
         """
         if not self.api_key or "YOUR_" in self.api_key:
             logger.error("Gemini API key is not configured. Please check config.json or GEMINI_API_KEY.")
@@ -219,6 +266,14 @@ class FactualityEvaluator:
                 "⚠️ Evaluation Failed: Gemini API Key is missing or invalid.\n"
                 "Please configure 'gemini_api_key' in config.json."
             )
+
+        if is_long_dialogue is None:
+            is_long = self.detect_is_long_dialogue(transcript_a, transcript_b, total_rounds=total_rounds)
+        else:
+            is_long = is_long_dialogue
+
+        char_limit = max_chars if max_chars is not None else (1000 if is_long else 800)
+        sys_prompt = get_system_prompt(is_long_dialogue=is_long)
 
         # Retrieve real-time search grounding for factual verification of entities discussed
         grounding_context = SearchGrounding.search_transcripts(transcript_a, transcript_b)
@@ -251,17 +306,17 @@ class FactualityEvaluator:
         last_error = ""
         for model in candidate_models:
             for attempt in range(1, 3):
-                logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2)...")
-                result, error_msg = self._call_model(model, user_content)
+                logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2, limit: {char_limit} chars)...")
+                result, error_msg = self._call_model(model, user_content, system_prompt=sys_prompt)
                 if result:
-                    cleaned = self.clean_evaluation_report(result)
-                    if len(cleaned) > 800:
-                        logger.info(f"Report length ({len(cleaned)} chars) exceeds 800 limit. Auto-condensing...")
-                        condensed = self.condense_report(cleaned)
+                    cleaned = self.clean_evaluation_report(result, max_chars=char_limit)
+                    if len(cleaned) > char_limit:
+                        logger.info(f"Report length ({len(cleaned)} chars) exceeds {char_limit} limit. Auto-condensing...")
+                        condensed = self.condense_report(cleaned, max_chars=char_limit)
                         if condensed:
                             cleaned = condensed
-                    if len(cleaned) > 800:
-                        cleaned = self._hard_truncate_to_char_limit(cleaned, max_chars=780)
+                    if len(cleaned) > char_limit:
+                        cleaned = self._hard_truncate_to_char_limit(cleaned, max_chars=char_limit - 20)
                     return cleaned
 
                 last_error = error_msg
@@ -277,18 +332,20 @@ class FactualityEvaluator:
 
         return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
 
-    def condense_report(self, text: str) -> str:
+    def condense_report(self, text: str, max_chars: int = 800) -> str:
         """
-        Condenses an existing evaluation report so that its total length is strictly under 800 characters
-        (aiming for ~600-740 characters), preserving the two-paragraph structure, opening phrases,
+        Condenses an existing evaluation report so that its total length is strictly under max_chars
+        (800 for short dialogues, 1000 for long dialogues), preserving the two-paragraph structure, opening phrases,
         and asymmetric emphasis (short compliment for winner, detailed critique with turn/quotes/facts for loser).
         """
         if not text:
             return ""
 
+        target_limit = max_chars - 20
+        target_aim = f"{max_chars - 200}-{max_chars - 60}"
         condense_prompt = (
-            "You are a strict, concise evaluation editor. Condense the following AI evaluation report so that its "
-            "TOTAL COMBINED LENGTH is STRICTLY UNDER 750 CHARACTERS (aim for 600-740 characters total).\n\n"
+            f"You are a strict, concise evaluation editor. Condense the following AI evaluation report so that its "
+            f"TOTAL COMBINED LENGTH is STRICTLY UNDER {target_limit} CHARACTERS (aim for {target_aim} characters total).\n\n"
             "CRITICAL FORMAT RULES:\n"
             "1. Exactly two paragraphs separated by a single blank line:\n"
             "   - Paragraph 1 MUST start with: For conversational dynamics I prefer [Model A/Model B/neither model].\n"
@@ -297,7 +354,7 @@ class FactualityEvaluator:
             "3. ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):\n"
             "   - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples. Absolutely no redundant praise!\n"
             "   - For the LOSING / FLAWED model: Dedicate 75-80% of paragraph space to its mistakes. Retain exact Turn [X], quotes of mistakes/fillers, and verified Ground Truth facts.\n"
-            "4. Total combined length across both paragraphs MUST be strictly under 780 characters.\n\n"
+            f"4. Total combined length across both paragraphs MUST be strictly under {max_chars} characters.\n\n"
             f"Original Report to Condense:\n{text.strip()}"
         )
 
@@ -312,24 +369,24 @@ class FactualityEvaluator:
             try:
                 res, err = self._call_model(model, condense_prompt)
                 if res:
-                    cleaned = self.clean_evaluation_report(res)
-                    if cleaned and len(cleaned) <= 800:
+                    cleaned = self.clean_evaluation_report(res, max_chars=max_chars)
+                    if cleaned and len(cleaned) <= max_chars:
                         return cleaned
                     elif cleaned:
-                        return self._hard_truncate_to_char_limit(cleaned, max_chars=780)
+                        return self._hard_truncate_to_char_limit(cleaned, max_chars=max_chars - 20)
             except Exception as e:
                 logger.warning(f"Condense attempt with {model} failed: {e}")
 
-        return self._hard_truncate_to_char_limit(text, max_chars=780)
+        return self._hard_truncate_to_char_limit(text, max_chars=max_chars - 20)
 
     @classmethod
-    def clean_evaluation_report(cls, text: str) -> str:
+    def clean_evaluation_report(cls, text: str, max_chars: int = 800) -> str:
         """
         Sanitizes evaluation text into exactly two dimensions separated by a single blank line:
         1. For conversational dynamics I prefer...
         [blank line]
         2. For utility I prefer...
-        Enforces total length strictly under 800 characters.
+        Enforces total length strictly under max_chars (800 for short dialogues, 1000 for long dialogues).
         """
         if not text:
             return ""
@@ -370,22 +427,26 @@ class FactualityEvaluator:
         p1 = re.sub(r"[\r\n]+", " ", p1)
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
+        # Word limits scale according to max_chars
+        p1_words = 90 if max_chars >= 1000 else 70
+        p2_words = 110 if max_chars >= 1000 else 80
+
         # Truncate each paragraph to strictly under word budget if necessary
-        p1 = cls._truncate_to_word_limit(p1, max_words=70)
+        p1 = cls._truncate_to_word_limit(p1, max_words=p1_words)
 
         # Normalize internal spacing of paragraph 2
         if p2:
             p2 = re.sub(r"###.*$", "", p2).strip()
             p2 = re.sub(r"[\r\n]+", " ", p2)
             p2 = re.sub(r"\s{2,}", " ", p2).strip()
-            p2 = cls._truncate_to_word_limit(p2, max_words=80)
+            p2 = cls._truncate_to_word_limit(p2, max_words=p2_words)
             combined = f"{p1}\n\n{p2}"
-            if len(combined) > 800:
-                combined = cls._hard_truncate_to_char_limit(combined, max_chars=800)
+            if len(combined) > max_chars:
+                combined = cls._hard_truncate_to_char_limit(combined, max_chars=max_chars)
             return combined
 
-        if len(p1) > 800:
-            p1 = cls._hard_truncate_to_char_limit(p1, max_chars=800)
+        if len(p1) > max_chars:
+            p1 = cls._hard_truncate_to_char_limit(p1, max_chars=max_chars)
         return p1
 
     @classmethod

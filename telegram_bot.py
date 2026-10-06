@@ -46,6 +46,7 @@ class TelegramBotService:
         # Typing simulation buffer
         self.pending_typing_text = ""
         self.current_factuality_report = ""
+        self.current_report_max_chars = 800
         self.is_typing_active = False
         self.active_typing_msg_id = None
 
@@ -127,18 +128,32 @@ class TelegramBotService:
         )
         self._send_message(prompt_msg)
 
-    def deliver_factuality_report(self, title: str, summary: str) -> bool:
+    def deliver_factuality_report(
+        self,
+        title: str,
+        summary: str,
+        is_long_dialogue: Optional[bool] = None,
+        max_chars: Optional[int] = None,
+    ) -> bool:
         """
         Delivers the factuality check report (structured into two dimensions with an empty line),
         and offers interactive options:
         1. 准备好了，直接打字 (Ready, direct typing)
-        2. ⚡ 精炼浓缩（<800字符） (Condense on demand)
+        2. ⚡ 精炼浓缩（<800或<1000字符） (Condense on demand)
         3. 我需要修改 (Need to edit before typing)
         """
         # Preserve the empty line between the two evaluation dimensions
         clean_summary = re.sub(r"\r\n", "\n", summary).strip()
         clean_summary = re.sub(r"\n{3,}", "\n\n", clean_summary)
 
+        # Determine effective char limit (800 for short dialogues, 1000 for long dialogues)
+        if max_chars is None:
+            is_long = bool(is_long_dialogue or (self.total_rounds and self.total_rounds >= 4))
+            limit = 1000 if is_long else 800
+        else:
+            limit = max_chars
+
+        self.current_report_max_chars = limit
         self.current_factuality_report = clean_summary
         self.pending_typing_text = clean_summary
         self.state = "IDLE"
@@ -148,8 +163,8 @@ class TelegramBotService:
         char_count = len(clean_summary)
 
         warn_text = ""
-        if char_count > 800:
-            warn_text = f"\n⚠️ <i>提示：当前报告为 {char_count} 字符（超出 800 字符限制），可点击下方【⚡ 精炼浓缩】一键压缩至 800 字符以内。</i>\n"
+        if char_count > limit:
+            warn_text = f"\n⚠️ <i>提示：当前报告为 {char_count} 字符（超出 {limit} 字符限制），可点击下方【⚡ 精炼浓缩】一键压缩至 {limit} 字符以内。</i>\n"
 
         msg = (
             f"📊 <b>{escaped_title}</b> (共 {char_count} 字符)\n\n"
@@ -165,7 +180,7 @@ class TelegramBotService:
                 {"text": "✏️ 我需要修改", "callback_data": "action_need_edit_report"},
             ],
             [
-                {"text": "⚡ 精炼浓缩（<800字符）", "callback_data": "action_condense_report"},
+                {"text": f"⚡ 精炼浓缩（<{limit}字符）", "callback_data": "action_condense_report"},
             ]
         ]
         return self._send_message(msg, reply_markup={"inline_keyboard": keyboard})
@@ -383,10 +398,11 @@ class TelegramBotService:
             if not self.current_factuality_report:
                 self._send_message("⚠️ 暂无事实排查报告可供精炼。")
                 return
+            target_limit = getattr(self, "current_report_max_chars", 800) or 800
             self._send_chat_action("typing")
-            self._send_message("⚡ 正在运用 AI 对评价报告进行深度精炼（压缩至 800 字符以内，保持核心要素与错漏）...")
+            self._send_message(f"⚡ 正在运用 AI 对评价报告进行深度精炼（压缩至 {target_limit} 字符以内，保持核心要素与错漏）...")
             try:
-                condensed = self.evaluator.condense_report(self.current_factuality_report)
+                condensed = self.evaluator.condense_report(self.current_factuality_report, max_chars=target_limit)
                 if condensed:
                     self.current_factuality_report = condensed
                     self.pending_typing_text = condensed
