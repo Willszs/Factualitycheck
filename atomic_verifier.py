@@ -42,8 +42,13 @@ AUDIT SCOPE & METHODOLOGY:
    - Dates, milestones, and temporal consistency.
    - Medicine, physiology, and formulas.
 4. Film, TV Dramas, Literature & Entertainment:
-   - CRITICAL CAUTION: NEVER declare a TV drama, movie, or book title "fabricated" or "non-existent" simply because it is recent (e.g. 2024-2026 productions like 《秋雪漫过的冬天》) or absent from your pre-training cutoff!
-   - Only flag media claims when there is positive, verifiable proof of factual distortion (e.g. mischaracterizing a heavy historical war film like 《得闲谨制》 as a released comedy on Youku).
+   - CRITICAL GROUND TRUTH RULES (DO NOT USE OUTDATED TRAINING KNOWLEDGE):
+     * NEVER declare a TV drama, movie, or book title "fabricated", "non-existent", or "unreleased" based on outdated pre-training knowledge!
+     * Use Google Search to verify recent releases (2025-2026 productions).
+     * For instance:
+       - 《得闲谨制》 was officially released in theaters in December 2025 and released online on major streaming platforms including Youku, Tencent, and iQIYI in February 2026. It IS genuinely streaming on Youku.
+       - 《秋雪漫过的冬天》 is a real drama streaming exclusively on Youku starting January 2026 starring Mark Chao (赵又廷) and Zhang Zifeng (张子枫).
+     * NEVER falsely penalize models or claim real productions available on the requested platform are "unreleased" or "fabricated".
 
 AUDITOR DIRECTIVE:
 - Audit BOTH Model A and Model B across ALL turns with forensic precision.
@@ -126,6 +131,7 @@ class AtomicClaimVerifier:
                     system_instruction=prompt,
                     temperature=0.0,
                     max_output_tokens=4096,
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
                 ),
             )
             if response and response.text:
@@ -154,6 +160,7 @@ class AtomicClaimVerifier:
                     "parts": [{"text": user_content}]
                 }
             ],
+            "tools": [{"google_search": {}}],
             "generationConfig": {
                 "temperature": 0.0,
                 "maxOutputTokens": 4096
