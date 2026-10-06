@@ -565,10 +565,11 @@ Skills tested
         self.assertTrue(any("古巴" in q for q in queries_cuba))
         self.assertTrue(any("停电" in q for q in queries_cuba))
 
-        # 3. Question Generator has specific location anchoring rule for incidents/outages
+        # 3. Question Generator has specific location anchoring rule for incidents/outages & bans binary choices
         qg_prompt = get_qg_prompt()
         self.assertIn("事故、停电、灾害类题目必须明确具体地点与事件", qg_prompt)
         self.assertIn("古巴", qg_prompt)
+        self.assertIn("严禁机械千篇一律“二选一”", qg_prompt)
 
         # 4. Evaluator prompt has power grid and blackout factual audit
         eval_prompt = get_eval_prompt()

@@ -95,8 +95,14 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
         * Legal/Compliance: Statutory limitation triggers, force majeure contractual thresholds, severance calculation formulas (N+1 vs 2N).
         * Finance/Investment: Effective APR/IRR amortization calculations, tax-loss harvesting rules, margin call liquidation ratios.
         * Workplace/Management: Labor law dispute jurisdiction, non-compete compensation standards, performance pip evidence requirements.
-     2. CONCRETE ACTIONABLE DILEMMA WITH REAL STAKES (带有真金白银或切实代价的具体抉择):
-        The question MUST frame a real-world dilemma with practical stakes (e.g. forfeiting non-refundable deposits, signing a risky clause, choosing between two incompatible hardware architectures), forcing the AI to take a scientifically grounded, calibrated stance rather than hedging with safe non-answers.
+     2. DIVERSE QUESTION STRUCTURES & ACTIONABLE STAKES (句式结构自然多样，严禁机械千篇一律“二选一”):
+        - ABSOLUTE BAN ON REPETITIVE "A OR B" FORCED CHOICES (严禁千篇一律“二选一”/“到底是A还是B”):
+          Real humans in voice conversation DO NOT talk in rigid binary multiple-choice quiz formats! NEVER make every question an "到底是A还是B" or "我该选A还是选B".
+        - DIVERSIFY QUESTION FRAMES NATURALLY (灵活采用多元发问句式):
+          * Open-ended mechanism & cause probe (开放式机理与原因探究): "这次事故到底是怎么发生的？具体是哪个核心环节出了问题？"
+          * Factual & data verification (事实细节与数据核实): "这次受损情况和波及范围具体有多大？目前官方通报的恢复进展到哪一步了？"
+          * Practical assessment & strategy (方案评估与行动建议): "针对这种情况，行业内最有效可行的应对方案是什么？需要防范哪些隐患？"
+          * Dilemma/Trade-off (仅在真正涉及决策权衡时才偶尔使用): Only frame as a decision dilemma or comparison when the user's prompt specifically calls for a choice or comparison!
      3. FACTUAL STRESS-TESTING (防打太极的事实压力测试):
         Formulate the probe to intentionally close off vague escape routes. Probe common misconceptions, real numbers, or trade-offs so that superficial knowledge or hallucinations are immediately exposed.
    - SPOKEN AUTHENTICITY WITH PROFESSIONAL CORE:
@@ -112,7 +118,7 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      3) The probe must target concrete facts: 停电的具体诱因（如哪座主力热电厂跳闸、燃料短缺、输电线路覆冰折断、还是负荷过高拉闸限电）、波及的人口/户数、受损电网恢复进度，直接考察被测模型对真实事故起因、规模与电网工程细节的事实把握，让被测模型无法打太极！
    - SPOKEN ORAL EXAMPLES:
      * Good: "哎，古巴最近全国电网大停电到底是哪座主要热电厂跳闸引发的？好像全国一千多万人全断电了，现在电网抢修恢复到什么程度了？"
-     * Good: "之前得州冬季暴风雪那次全州大停电，核心诱因到底是风电结冰脱网，还是天然气井口冻结导致火电机组缺气停机啊？"
+     * Good: "之前得州冬季暴风雪引起全州大停电，核心诱因到底是什么？当时整个电网为什么会大面积失控脱网啊？"
      * FORBIDDEN: "如果突然遇到大规模停电，我们应该做些什么准备？" (STRICTLY PROHIBITED! Vague and placeless!)
 
 OUTPUT FORMAT:
@@ -263,13 +269,14 @@ class QuestionGenerator:
             f"=== 核心原则与严厉禁止 ===\n"
             f"1. 严格口语字数限制：【提问内容】必须在 30 ~ 65 字以内，口语极其自然流畅，绝对不要长篇大论，绝不能念出来超过10秒！\n"
             f"2. 严禁八股考试体：严禁出现“请完成以下任务”、“1. 事实准确性”、“2. 结构化表达”等机器考试字眼！\n"
-            f"3. 拒绝泛泛而谈（全门类专业级考题准则）：绝不提出空洞无物的废话问题（如泛泛问'我该注意什么/我该担心吗'导致模型只能回套话）！发问必须直击具体的专业机制、行业参数标准、法规条款、硬核事实或带有实际代价的决策两难，封死模型打太极的退路！\n"
-            f"4. 绝对严禁跨话题杂糅要求（保持话题100%独立纯粹）：提问必须严格、纯粹地围绕当前【测评主题】展开！绝对严禁擅自引入其他话题的测试套路（例如：严禁擅自插入防跑题中断话术“这让我想起别的事...算了不想了/回到刚才”、严禁擅自插入门票/价格评估、严禁擅自插入无关联想），除非当前测评主题本身明确要求了该项测试！\n"
-            f"5. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
-            f"6. 联网真实具名原则：对于手机、电子产品、新闻、比赛、球队等实时资讯，系统已通过全网检索提供了当前现实中的最新真实实体。必须直接使用检索到的真实具体名字（如具体手机型号、具体球队对决），绝不凭空瞎猜未发布的虚构型号！\n"
-            f"7. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
-            f"8. 事故、停电、灾害类题目必须明确具体地点与事件（绝对严禁泛泛而谈）：若主题涉及停电、电网、火灾、爆炸、交通事故、自然灾害等，提问绝对严禁没有地点泛泛问‘如果停电该怎么办’等空洞废话！必须结合检索结果或真实世界具体事件，明确锁定具体国家/省份/城市（如古巴全国大停电、得州暴风雪大停电、某地具体事故），针对具体电厂故障、电网跳闸诱因、波及人口或恢复进展进行事实压力测试！\n"
-            f"9. 格式：直接以【提问内容】开头。\n"
+            f"3. 拒绝泛泛而谈（全门类专业级考题准则）：绝不提出空洞无物的废话问题（如泛泛问'我该注意什么/我该担心吗'导致模型只能回套话）！发问必须直击具体的专业机制、行业参数标准、法规条款、硬核事实或关键痛点，封死模型打太极的退路！\n"
+            f"4. 严禁千篇一律‘二选一’选择题：绝对禁止把每个提问都机械做成‘到底选A还是选B’、‘到底是A还是B’的死板选择题！真人语音提问方式必须自然多样（多用开放式深入追问、具体原因剖析、影响与数据核实、应对方案等），绝不能把每道题都变成非A即B的考试选择题！\n"
+            f"5. 绝对严禁跨话题杂糅要求（保持话题100%独立纯粹）：提问必须严格、纯粹地围绕当前【测评主题】展开！绝对严禁擅自引入其他话题的测试套路（例如：严禁擅自插入防跑题中断话术“这让我想起别的事...算了不想了/回到刚才”、严禁擅自插入门票/价格评估、严禁擅自插入无关联想），除非当前测评主题本身明确要求了该项测试！\n"
+            f"6. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
+            f"7. 联网真实具名原则：对于手机、电子产品、新闻、比赛、球队等实时资讯，系统已通过全网检索提供了当前现实中的最新真实实体。必须直接使用检索到的真实具体名字（如具体手机型号、具体球队对决），绝不凭空瞎猜未发布的虚构型号！\n"
+            f"8. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
+            f"9. 事故、停电、灾害类题目必须明确具体地点与事件（绝对严禁泛泛而谈）：若主题涉及停电、电网、火灾、爆炸、交通事故、自然灾害等，提问绝对严禁没有地点泛泛问‘如果停电该怎么办’等空洞废话！必须结合检索结果或真实世界具体事件，明确锁定具体国家/省份/城市（如古巴全国大停电、得州暴风雪大停电、某地具体事故），针对具体电厂故障、电网跳闸诱因、波及人口或恢复进展进行事实压力测试！\n"
+            f"10. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content, topic_context=topic, current_round=current_round)
