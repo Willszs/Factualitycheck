@@ -11,6 +11,7 @@ from evaluator import FactualityEvaluator, SYSTEM_PROMPT
 from notifier import Notifier
 from question_generator import QuestionGenerator
 from telegram_bot import TelegramBotService
+from typer import HumanTyper
 
 
 class TestFactualityComponents(unittest.TestCase):
@@ -855,6 +856,45 @@ Skills tested
             inline_keyboard = call_kwargs["reply_markup"]["inline_keyboard"]
             condense_btn = inline_keyboard[1][0]
             self.assertEqual(condense_btn["text"], "⚡ 精炼浓缩（<1000字符）")
+
+    def test_typing_state_self_healing_and_commands(self):
+        """Tests that stuck/paused typing tasks auto-heal on new task start, and /reset clears state."""
+        bot = TelegramBotService(self.sample_config)
+
+        # 1. Test /reset text command
+        bot.is_typing_active = True
+        with patch.object(bot, "_send_message") as mock_send, \
+             patch.object(HumanTyper, "stop") as mock_stop:
+            bot._handle_update({"message": {"chat": {"id": "987654321"}, "text": "/reset"}})
+            mock_stop.assert_called_once()
+            self.assertFalse(bot.is_typing_active)
+            mock_send.assert_called_once()
+            self.assertIn("已强制终止并重置", mock_send.call_args[0][0])
+
+        # 2. Test auto-healing when previous task was paused and user starts new typing
+        bot.is_typing_active = True
+        bot.pending_typing_text = "New typing text"
+        with patch.object(HumanTyper, "is_paused", return_value=True), \
+             patch.object(HumanTyper, "stop") as mock_stop, \
+             patch.object(bot, "_execute_typing_task") as mock_exec, \
+             patch.object(bot, "_send_message") as mock_send:
+            bot._handle_callback_data("action_start_typing", message_id=None)
+            mock_stop.assert_called_once()
+            self.assertEqual(bot.pending_typing_text, "")
+
+        # 3. Test active conflict detection when typing is genuinely running
+        bot.is_typing_active = True
+        bot.pending_typing_text = "Another text"
+        with patch.object(HumanTyper, "is_paused", return_value=False), \
+             patch.object(HumanTyper, "is_active", return_value=True), \
+             patch.object(HumanTyper, "get_progress", return_value=(50, 100)), \
+             patch.object(bot, "_send_message") as mock_send:
+            bot._handle_callback_data("action_start_typing", message_id=None)
+            mock_send.assert_called_once()
+            self.assertIn("当前已有打字任务正在电脑上执行中", mock_send.call_args[0][0])
+            self.assertIn("50/100", mock_send.call_args[0][0])
+            call_kb = mock_send.call_args[1]["reply_markup"]["inline_keyboard"]
+            self.assertEqual(call_kb[0][0]["callback_data"], "action_force_start_typing")
 
 
 if __name__ == "__main__":

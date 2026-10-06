@@ -225,6 +225,30 @@ class TelegramBotService:
             if not text:
                 return
 
+            text_cmd = text.strip().lower()
+            if text_cmd in ["/stop", "/reset", "/clear", "停止", "终止", "重置", "取消打字"]:
+                HumanTyper.stop()
+                self.is_typing_active = False
+                self.active_typing_msg_id = None
+                self._send_message(
+                    "⏹️ <b>打字任务已强制终止并重置！</b>\n"
+                    "所有后台打字模拟及等待状态均已清除，您可以随时重新开始打字。"
+                )
+                return
+            elif text_cmd in ["/status", "状态"]:
+                active = HumanTyper.is_active()
+                paused = HumanTyper.is_paused()
+                cur, total = HumanTyper.get_progress()
+                pct = int(cur / total * 100) if total > 0 else 0
+                status_desc = "正在打字" if (active and not paused) else ("已暂停" if paused else "空闲待命")
+                self._send_message(
+                    f"📊 <b>打字任务状态：</b>\n"
+                    f"• 运行状态：<b>{status_desc}</b>\n"
+                    f"• 输入进度：{cur}/{total} 字符 ({pct}%)\n"
+                    f"• 待打字文本：{'有' if self.pending_typing_text else '无'}"
+                )
+                return
+
             # Check states
             if self.state == "WAITING_REPORT_EDIT":
                 self.pending_typing_text = text
@@ -248,7 +272,8 @@ class TelegramBotService:
             else:
                 self._send_message(
                     "💡 提示：自动打字功能专属于【事实排查报告】推送场景。\n"
-                    "请在电脑端将两个 AI 模型的对话分别填入【粘贴1】和【粘贴2】，点击【发送到手机】即可在此接收报告并使用自动打字。"
+                    "请在电脑端将两个 AI 模型的对话分别填入【粘贴1】和【粘贴2】，点击【发送到手机】即可在此接收报告并使用自动打字。\n\n"
+                    "<i>如需重置打字状态，可随时发送 /reset 或 /stop。</i>"
                 )
 
         # 2. Handle callback queries from inline buttons
@@ -481,6 +506,8 @@ class TelegramBotService:
 
         elif data == "action_stop_typing":
             HumanTyper.stop()
+            self.is_typing_active = False
+            self.active_typing_msg_id = None
             cur, total = HumanTyper.get_progress()
             stop_msg = (
                 f"⏹️ <b>打字已由您手动终止！</b>\n"
@@ -500,8 +527,32 @@ class TelegramBotService:
                 self._send_message("⚠️ 没有待输入的文本，请先发送一段文本给我。")
                 return
 
-            if self.is_typing_active:
-                self._send_message("⚠️ 当前正在进行打字任务，请稍候...")
+            # Self-healing: if typer is paused or no longer active, clean it up automatically
+            if HumanTyper.is_paused() or not HumanTyper.is_active():
+                if self.is_typing_active or HumanTyper.is_paused():
+                    logger.info("Auto-clearing dangling or paused typing task before starting new typing task.")
+                    HumanTyper.stop()
+                    time.sleep(0.15)
+                    self.is_typing_active = False
+
+            # If typer is genuinely active and running right now
+            if self.is_typing_active and HumanTyper.is_active():
+                cur, total = HumanTyper.get_progress()
+                pct = int(cur / total * 100) if total > 0 else 0
+                busy_msg = (
+                    f"⚠️ <b>当前已有打字任务正在电脑上执行中</b>（进度：{cur}/{total} 字符，{pct}%）。\n\n"
+                    f"您可以等待当前任务完成，或者点击下方按钮<b>强制终止旧任务并立即开始本次打字</b>："
+                )
+                busy_kb = [
+                    [
+                        {"text": "⏹️ 强制终止旧任务并开始新打字", "callback_data": "action_force_start_typing"},
+                    ],
+                    [
+                        {"text": "⏸️ 暂停打字", "callback_data": "action_pause_typing"},
+                        {"text": "⏹️ 终止打字", "callback_data": "action_stop_typing"},
+                    ],
+                ]
+                self._send_message(busy_msg, reply_markup={"inline_keyboard": busy_kb})
                 return
 
             text_to_type = self.pending_typing_text
@@ -521,6 +572,13 @@ class TelegramBotService:
                 args=(text_to_type, message_id),
                 daemon=True,
             ).start()
+
+        elif data == "action_force_start_typing":
+            HumanTyper.stop()
+            time.sleep(0.2)
+            self.is_typing_active = False
+            self._handle_callback_data("action_start_typing", message_id)
+            return
 
         elif data == "action_cancel_typing":
             self.pending_typing_text = ""

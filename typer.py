@@ -325,9 +325,16 @@ class HumanTyper:
                     logger.info("Typing simulation aborted by user stop event.")
                     return False, "打字已由用户手动停止"
 
+                pause_wait_start = None
                 while not cls._pause_event.is_set():
+                    if pause_wait_start is None:
+                        pause_wait_start = time.time()
                     if cls._stop_event.is_set():
                         return False, "打字已由用户手动停止"
+                    # Auto-stop if left paused for more than 10 minutes to prevent thread hang
+                    if time.time() - pause_wait_start > 600:
+                        logger.warning("HumanTyper: Pause timed out after 10 minutes. Auto-stopping.")
+                        return False, "打字暂停超时已自动释放"
                     time.sleep(0.1)
 
                 cls._current_index = i + 1
