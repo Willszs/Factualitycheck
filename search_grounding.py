@@ -26,6 +26,7 @@ class SearchGrounding:
         "比赛", "球队", "对决", "比分", "胜负", "欧冠", "英超", "NBA", "CBA", "世界杯", "联赛", "赛程",
         "电影", "上映", "院线", "票房", "剧", "音乐节", "演唱会", "阵容", "演出", "展演",
         "疾病", "病毒", "疫情", "感染", "传染", "呼吸道", "流感", "新冠", "支原体", "登革热", "猴痘", "疫苗", "航班", "机舱",
+        "地震", "震中", "震级", "海啸", "台风", "灾情", "暴雨", "洪涝", "气象署", "地震台网",
         "最新", "刚发布", "刚刚", "最近", "近期", "昨天", "今天", "本周", "这周末",
         "关税", "贸易", "政策", "条款", "法规", "法案", "规定", "税率", "外贸", "豁免",
     ]
@@ -83,6 +84,19 @@ class SearchGrounding:
             queries.append(f"最新上映电影 口碑 票房 {now_year}")
         elif any(w in topic for w in ["音乐节", "演唱会", "阵容"]):
             queries.append(f"最新音乐节 阵容 官宣 {now_year}")
+
+        # 6. Natural Disasters & Meteorological Events (Earthquakes, Typhoons, etc.)
+        elif any(w in topic for w in ["地震", "震中", "震级", "海啸", "台风", "灾情", "暴雨", "洪涝"]):
+            loc_match = re.search(r"(台湾|花莲|宜兰|四川|云南|新疆|西藏|日本|土耳其|甘肃|青海|广东|福建|浙江|[A-Za-z\u4e00-\u9fa5]+(?:省|市|县|区|海域))", topic)
+            loc = loc_match.group(1) if loc_match else ""
+            if "地震" in topic:
+                queries.append(f"{loc} 地震 震中 震级 最新 气象署".strip())
+                queries.append(f"{loc} 地震 最新 消息 中国地震台网".strip())
+            elif "台风" in topic:
+                queries.append(f"{loc} 台风 最新 路径 登陆".strip())
+                queries.append(f"{loc} 台风 预警 应急".strip())
+            else:
+                queries.append(f"{loc} 自然灾害 灾情 最新".strip())
 
         # Fallback: clean the topic itself into a search query (strip benchmark metadata & Skills tested)
         clean_topic = re.sub(r"(?i)(?:skills?\s+tested|skills?|测试技能|考察技能|测评技能|考核技能)[\s\S]*$", "", topic)
@@ -242,12 +256,22 @@ class SearchGrounding:
             else:
                 queries.append(f"最新呼吸道传染病 疫情 疾控通报 {now_year}")
 
-        # 5. Extract core domain keywords from Turn 1 (strip conversational noise)
+        # 5. Natural disasters & earthquakes (e.g. 台湾 花莲 地震 震中 震级 气象署)
+        if any(w in combined for w in ["地震", "震中", "震级", "海啸", "台风", "暴雨", "洪涝", "气象"]):
+            loc_match = re.search(r"(台湾|花莲|宜兰|台东|高雄|台北|新北|四川|云南|新疆|西藏|日本|土耳其|甘肃|青海|广东|福建|浙江|[A-Za-z\u4e00-\u9fa5]+(?:省|市|县|区|海域))", combined)
+            loc = loc_match.group(1) if loc_match else ""
+            if "地震" in combined:
+                queries.append(f"{loc} 地震 震中 震级 最新 气象署 台网".strip())
+                queries.append(f"{loc} 地震 报告 测报 深度".strip())
+            elif "台风" in combined:
+                queries.append(f"{loc} 台风 路径 登陆 最新".strip())
+
+        # 6. Extract core domain keywords from Turn 1 (strip conversational noise)
         lines = [line.strip() for line in transcript_a.splitlines() if line.strip()]
         if lines:
             first_user_line = lines[0]
             matched_topics = []
-            for topic_kw in ["国际贸易政策", "关税变动", "贸易政策", "最新手机", "新手机", "折叠屏", "在映电影", "最新比赛"]:
+            for topic_kw in ["国际贸易政策", "关税变动", "贸易政策", "最新手机", "新手机", "折叠屏", "在映电影", "最新比赛", "地震", "震中"]:
                 if topic_kw in first_user_line and topic_kw not in matched_topics:
                     matched_topics.append(topic_kw)
             if matched_topics:
@@ -300,6 +324,7 @@ class SearchGrounding:
             "1. The entities, products, trade policies, statutes, and events listed above (e.g. Section 122 tariffs / 122条款关税, IEEPA, tariff quotas, de minimis exemptions, Apple's iPhone Duo, tournament results) are 100% REAL AND VERIFIED in the current real world.\n"
             "2. DO NOT rely on pre-training knowledge cutoff or lack of familiarity to claim these products, laws, or trade policies are fictional, unannounced, or non-existent! It is a severe evaluation failure to falsely accuse accurate models of inventing real statutes.\n"
             "3. If a model mentions these verified entities, statutes, or specifications consistent with real-world reports, its statements are FACTUALLY ACCURATE.\n"
-            "4. Only mark a statement as a factual error if it directly contradicts verified real-world facts or fabricates non-existent details."
+            "4. Only mark a statement as a factual error if it directly contradicts verified real-world facts or fabricates non-existent details.\n"
+            "5. For natural disasters (earthquakes, typhoons, etc.), rigorously audit specific metrics (epicenter distance/direction, focal depth, magnitude) against official agency reports (e.g. Taiwan CWA / 中国地震台网). A model misstating epicenter distance (e.g. claiming 800米 instead of 8公里—a 10x deviation that mislocates an offshore epicenter onto land) commits an objective factual error."
         )
         return "\n".join(res_lines)

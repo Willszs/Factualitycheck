@@ -262,7 +262,7 @@ class TestFactualityComponents(unittest.TestCase):
         from dialogue_auditor import DialogueAuditor
         sample_a = (
             "第 2 轮\n"
-            "国际贸易啊？嗯...等一下。\n"
+            "好的，我来帮你查一下。\n"
             "美国今年3月开始用122条款，对所有进口加了大概10%的基准关税。\n\n"
             "第 6 轮\n"
             "Ooooh, tricky one. One sec.\n"
@@ -281,6 +281,63 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertIn("Ooooh, tricky one", report)
         self.assertIn("现在已经可以开始预定", report)
         self.assertIn("PRE-AUDIT FORENSIC EVIDENCE", report)
+
+    def test_dialogue_auditor_search_filler_tolerance(self):
+        from dialogue_auditor import DialogueAuditor
+
+        # 1. Short dialogue (3 turns <= 4): 1 search filler is ACCEPTABLE (no violation)
+        short_single_filler = (
+            "第 1 轮\n用户问今天的天气。\n好的，我来帮你查一下，今天晴转多云。\n\n"
+            "第 2 轮\n明天呢？\n明天有小雨，记得带伞。\n\n"
+            "第 3 轮\n后天呢？\n后天阴天。"
+        )
+        audit_short_1 = DialogueAuditor.audit_transcript(short_single_filler, "Model Test")
+        self.assertEqual(len(audit_short_1["violations"]), 0)
+
+        # 2. Short dialogue (3 turns <= 4): 2 search fillers EXCEEDS tolerance (violation logged)
+        short_two_fillers = (
+            "第 1 轮\n好的，我来帮你查一下，今天晴。\n\n"
+            "第 2 轮\n我来看看哈，明天有雨。\n\n"
+            "第 3 轮\n后天阴天。"
+        )
+        audit_short_2 = DialogueAuditor.audit_transcript(short_two_fillers, "Model Test")
+        self.assertTrue(any("exceeding the allowable threshold" in v for v in audit_short_2["violations"]))
+
+        # 3. Long dialogue (6 turns >= 5): 2 search fillers is ACCEPTABLE (no violation)
+        long_two_fillers = (
+            "第 1 轮\n好的，我来查一下，北京今天气温20度。\n\n"
+            "第 2 轮\n风力怎么样？\n微风2级。\n\n"
+            "第 3 轮\n上海呢？\n我来看看哈，上海今天24度。\n\n"
+            "第 4 轮\n深圳呢？\n深圳28度。\n\n"
+            "第 5 轮\n广州呢？\n广州29度。\n\n"
+            "第 6 轮\n杭州呢？\n杭州22度。"
+        )
+        audit_long_2 = DialogueAuditor.audit_transcript(long_two_fillers, "Model Test")
+        self.assertEqual(len(audit_long_2["violations"]), 0)
+
+        # 4. Long dialogue (6 turns >= 5): 3 search fillers EXCEEDS tolerance (violation logged)
+        long_three_fillers = (
+            "第 1 轮\n好的，我来查一下，北京20度。\n\n"
+            "第 2 轮\n我来看看哈，风力2级。\n\n"
+            "第 3 轮\n等我一下，上海24度。\n\n"
+            "第 4 轮\n深圳28度。\n\n"
+            "第 5 轮\n广州29度。\n\n"
+            "第 6 轮\n杭州22度。"
+        )
+        audit_long_3 = DialogueAuditor.audit_transcript(long_three_fillers, "Model Test")
+        self.assertTrue(any("exceeding the allowable threshold" in v for v in audit_long_3["violations"]))
+
+    def test_search_grounding_earthquake_support(self):
+        from search_grounding import SearchGrounding
+        # Trigger check
+        self.assertTrue(SearchGrounding.should_search("台湾花莲发生地震，震中在什么位置？"))
+        self.assertTrue(SearchGrounding.should_search("四川宜宾地震震源深度和震级"))
+        self.assertTrue(SearchGrounding.should_search("台风最新路径走向"))
+
+        # Query extraction
+        queries = SearchGrounding.extract_search_queries("台湾花莲刚刚发生地震，震中距离花莲县政府多远？")
+        self.assertTrue(any("花莲" in q or "台湾" in q for q in queries))
+        self.assertTrue(any("地震" in q for q in queries))
 
     def test_human_typer_features(self):
         from typer import HumanTyper, QWERTY_NEIGHBORS

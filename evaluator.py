@@ -58,6 +58,11 @@ I. CONVERSATIONAL DYNAMICS (8 Core Dimensions):
    - Severe dead-air latency, unnatural pauses, or system hanging that forces the user to prompt or intervene (e.g. "人呢人呢", "喂", "在吗", "还在吗"). A model scrambling to say "在在!我在" does NOT erase the failure — causing dead air that provokes user intervention is a catastrophic turn-taking and timing failure!
    - Unprompted language switching & instruction violation: responding in English when the user speaks Chinese, or continuing to output English intros ("Checking European pricing and availability.") even after the user explicitly commands "中文回答我".
    - NEVER PRAISE A MODEL FOR "RECOVERING" FROM ITS OWN FAILURE: If a model causes dead-air pauses that force the user to ask "人呢人呢", or speaks English when Chinese was requested, you MUST NOT praise the model for "recovering smoothly" or "handling the interruption". The conversational breakdown has already occurred! A model that speaks English twice despite user demands for Chinese, or hangs until the user prompts "人呢人呢", CAN NEVER be preferred for conversational dynamics over a model that spoke fluent, uninterrupted Chinese.
+   - SEARCH FILLER TOLERANCE THRESHOLDS (短对话允许1个，长对话允许2个，严禁过度吹毛求疵正常缓冲语):
+     * A brief search-simulation filler (e.g. "好的，我来帮你查一下") is common and natural conversational turn-taking buffering when retrieving live data.
+     * Short dialogues (4 turns or fewer): Having EXACTLY 1 search filler across the entire dialogue is NORMAL and FULLY ACCEPTABLE. DO NOT penalize or criticize a model under Conversational Dynamics for a single isolated search filler in a short dialogue! Only penalize if it exceeds 1 filler (> 1).
+     * Long dialogues (5 turns or more): Having UP TO 2 search fillers across the conversation is FULLY ACCEPTABLE. Only flag and penalize if a model exceeds 2 search fillers (> 2), or mechanically repeats the identical stock phrase over and over like a canned mechanical jingle.
+     * If a model stayed strictly within this quota (<= 1 in short dialogue, <= 2 in long dialogue), treat its turn-taking as acceptable!
 2. Bridging Quality (Wait-Filler & Tool Handoff Quality):
    - Does the model lean on the same stock filler phrase every time it hands off to a tool, search, or larger model (e.g. repeated "好的，我来帮你查一下...", "稍等哦，正在为您检索..."), delivered with identical prosody — same pitch, pacing, and canned cheerfulness on every occurrence — so the wait-filler reads as a canned jingle / mechanical elevator music rather than natural speech?
    - Natural human conversation varies bridging expressions or transitions seamlessly. Repeating the same mechanical stock filler across turns is a notable conversational flaw.
@@ -74,6 +79,12 @@ II. UTILITY & FACTUALITY (4 Pillars):
 1. Factual Correctness & Forensic Verification (无死角事实细节校对): Every single turn must be examined with forensic precision across ALL domains:
    - Entities & Commercial Venues (Restaurants, stores, attractions, companies): Audit real founding/opening dates (e.g. established spots falsely claimed as "newly opened"), addresses, Michelin/rating statuses, and operational facts.
    - Events, Culture & Entertainment (Festivals, concerts, films, series, sports): Audit exact lineups, performing artists, casts, directors, release/event dates, host cities, venues, and ticket tiers. Any invented artist, false date, or hallucinated credit is an explicit error.
+   - Natural Disasters & Seismological Events (地震、台风与气象灾害精确指标审计):
+     * Audit exact numerical parameters against official government agency bulletins (中国地震台网 / 台湾气象署 CWA / USGS):
+       - Epicenter distance and direction (震中位置与距离, e.g. '花莲县政府东北东方约8公里' vs erroneously claiming '800米'—an entire order-of-magnitude / 10x deviation that misplaces an offshore epicenter onto downtown streets!)
+       - Focal depth (震源深度, e.g. 24.7公里)
+       - Magnitude (震级, e.g. 3.5级)
+     * A model that misstates the epicenter distance (e.g. 800米 instead of 8公里) or focal depth commits an objective factual error and MUST be cited and penalized under Utility!
    - Laws & Regulations (Civil, Commercial, Labor, Criminal codes): Audit exact article numbers, statutory voting quorums, approval thresholds, deadlines, and legal procedures against strict real-world law.
    - Science, Fitness & Technical (Training pacing, heart-rate zones, medical/physiological facts, formulas): Audit technical and quantitative precision.
    - Numbers & Timeline: Audit dates, years, percentages, prices, and statistics.

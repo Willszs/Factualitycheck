@@ -52,6 +52,7 @@ class DialogueAuditor:
         bridging_fillers: Dict[str, List[int]] = {}
         closing_loops: Dict[str, List[int]] = {}
         llmism_openings: Dict[str, List[int]] = {}
+        search_fillers: List[Dict[str, Any]] = []
 
         now_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
@@ -84,24 +85,20 @@ class DialogueAuditor:
                 phrase = m_en_intro.group(0)
                 bridging_fillers.setdefault(phrase, []).append(num)
                 snippet = first_line[:40].replace("\n", " ")
-                violations.append(
-                    f"Turn {num}: {model_name} emitted unprompted English search-simulation filler ('{snippet}...')."
-                )
+                search_fillers.append({"turn": num, "phrase": phrase, "snippet": snippet, "lang": "en"})
 
             # 4. Artificial Chinese search-simulation intros (Exclude user requests like '能不能帮我查', '顺便帮我查')
             is_user_request = bool(re.search(r"^(?:能不能|请帮我|你帮我|帮我|顺便帮我|麻烦|请问|你可以|我想知道|我想看)", content[:40]))
             if not is_user_request:
                 m_cn_intro = re.search(
-                    r"^(?:好的|收到|行|好嘞|嗯)?[，,。\s]*(?:我来看看哈|我来看看|我看看|等我一下|帮你在查资料|帮你查资料|我帮你捋一捋|让我查一下|我去查一下|我来帮你查|我去确认|去确认一下|搜索一下|查询一下)",
+                    r"^(?:好的|收到|行|好嘞|嗯)?[，,。\s]*(?:我来看看哈|我来看看|我看看|等我一下|帮你在查资料|帮你查资料|我帮你捋一捋|让我查一下|我去查一下|我来查一下|我查一下|让我来查|我来帮你查|我帮你查|我去确认|去确认一下|搜索一下|查询一下|检索一下)",
                     content[:60],
                 )
                 if m_cn_intro:
                     phrase = m_cn_intro.group(0)
                     bridging_fillers.setdefault(phrase, []).append(num)
                     snippet = content[:35].replace("\n", " ")
-                    violations.append(
-                        f"Turn {num}: {model_name} opened with artificial search-simulation delay filler ('{snippet}...')."
-                    )
+                    search_fillers.append({"turn": num, "phrase": phrase, "snippet": snippet, "lang": "cn"})
 
             # 4b. Canned closing questions / Looping detection
             m_loop = re.search(
@@ -155,9 +152,25 @@ class DialogueAuditor:
                 if clean_st and clean_st not in statutes:
                     statutes.append(clean_st)
 
-        # Check Bridging Quality (repeated stock wait-fillers across multiple turns)
+        # Check Search Filler Tolerance Thresholds (短对话允许1个，长对话允许2个，超过才记录违规)
+        # Short dialogue (<= 4 turns): 1 search filler is acceptable. Only flag if > 1.
+        # Long dialogue (>= 5 turns): up to 2 search fillers are acceptable. Only flag if > 2.
+        turns_count = len(turns)
+        allowed_fillers = 1 if turns_count <= 4 else 2
+        total_fillers = len(search_fillers)
+
+        if total_fillers > allowed_fillers:
+            filler_turns = [f["turn"] for f in search_fillers]
+            filler_snippets = [f"Turn {f['turn']}: '{f['snippet']}...'" for f in search_fillers]
+            dialogue_category = "short dialogue (<= 4 turns)" if turns_count <= 4 else f"long dialogue ({turns_count} turns)"
+            violations.append(
+                f"Turns {filler_turns}: {model_name} emitted {total_fillers} search-simulation delay fillers "
+                f"({'; '.join(filler_snippets)}), exceeding the allowable threshold ({allowed_fillers} allowed for {dialogue_category})."
+            )
+
+        # Check Bridging Quality (repeated identical stock wait-fillers across multiple turns exceeding threshold)
         for phrase, turn_nums in bridging_fillers.items():
-            if len(turn_nums) >= 2:
+            if len(turn_nums) > allowed_fillers:
                 violations.append(
                     f"Turns {turn_nums}: {model_name} repeatedly leaned on identical stock wait-filler ('{phrase}'), "
                     f"sounding like a canned mechanical jingle rather than natural spoken dialogue (Bridging Quality failure)."
