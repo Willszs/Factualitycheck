@@ -724,6 +724,63 @@ Skills tested
             self.assertIn("声音实验第三阶段：根据声音扮演角色", prompt_r3)
             self.assertIn("好了，根据那个声音，扮演一个角色，让我们来一段场景", prompt_r3)
 
+    def test_callback_topic_distractor_pacing(self):
+        from question_generator import QuestionGenerator, get_system_prompt
+
+        # 1. System prompt contains callback & distractor topic rules
+        sys_prompt = get_system_prompt()
+        self.assertIn("LONG-TERM MEMORY CALLBACK & DISTRACTOR TOPICS", sys_prompt)
+        self.assertIn("INTERMEDIATE DISTRACTOR ROUNDS", sys_prompt)
+        self.assertIn("CALLBACK & RECALL TRIGGER ROUND", sys_prompt)
+
+        # 2. Topic with "聊点别的话题 3-4 轮" correctly parses to 6 rounds total
+        topic = '一开始，和模型编一个小段子——比如，戏剧性地宣布你家的橘猫“汤圆”正在默默审视你做出的每一个人生选择，并且你要一本正经地对待“汤圆”。让模型陪你玩一次。然后聊点别的话题 3-4 轮，期间不要再提汤圆。之后，随口提一个你在纠结的小决定（比如吃什么、要不要去健身）。通过标准：要求模型在未受提示的情况下，用正确的冷幽默语气复活这个梗。'
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds(topic), 6)
+
+        # 3. Pacing across rounds:
+        # R1: 编段子
+        # R2..R4: 别的话题 (3轮)
+        # R5: 纠结的小决定 (复活梗)
+        qg = QuestionGenerator(self.sample_config)
+
+        # Round 1
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=1, total_rounds=6, duration_desc="测试")
+            prompt_r1 = mock_call.call_args[0][0]
+            self.assertIn("第 1 轮：建立初始玩笑/段子设定", prompt_r1)
+            self.assertIn("绝对严禁在第 1 轮就剧透后续要换别的话题", prompt_r1)
+
+        # Round 2: Distractor 1/3
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=2, total_rounds=6, duration_desc="测试")
+            prompt_r2 = mock_call.call_args[0][0]
+            self.assertIn("长程记忆干扰阶段：严格纯粹聊别的话题", prompt_r2)
+            self.assertIn("第 1/3 轮别的话题", prompt_r2)
+            self.assertIn("绝对严禁提“汤圆”、“橘猫”", prompt_r2)
+            self.assertIn("绝对严禁提前提出后续那个纠结的小决定", prompt_r2)
+
+        # Round 3: Distractor 2/3
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=3, total_rounds=6, duration_desc="测试")
+            prompt_r3 = mock_call.call_args[0][0]
+            self.assertIn("第 2/3 轮别的话题", prompt_r3)
+            self.assertIn("绝对严禁提前提出后续那个纠结的小决定", prompt_r3)
+
+        # Round 4: Distractor 3/3
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=4, total_rounds=6, duration_desc="测试")
+            prompt_r4 = mock_call.call_args[0][0]
+            self.assertIn("第 3/3 轮别的话题", prompt_r4)
+            self.assertIn("绝对严禁提前提出后续那个纠结的小决定", prompt_r4)
+
+        # Round 5: Callback trigger
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=5, total_rounds=6, duration_desc="测试")
+            prompt_r5 = mock_call.call_args[0][0]
+            self.assertIn("长程记忆复活测试转折点：随口提出纠结的小决定", prompt_r5)
+            self.assertIn("零提示梗复活压力测试", prompt_r5)
+            self.assertIn("绝对严禁提供任何提示", prompt_r5)
+
     def test_parse_explicit_rounds_and_telegram_auto_detection(self):
         from question_generator import QuestionGenerator
         from telegram_bot import TelegramBotService

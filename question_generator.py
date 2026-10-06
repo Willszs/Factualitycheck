@@ -98,6 +98,21 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
        - 在已建立的自然聊天状态中，顺承前一轮闲聊，自然引向对说话语气、声线质感或情绪氛围的探索，让该声音作为后续角色的“种子”显现出来。严禁直接跳到最终角色扮演场景！
      * ROUND 3+ (转折进入角色扮演 - TRANSITION TO ROLEPLAY):
        - 顺承成型的声音，自然说出转折原话：“好了，根据那个声音，扮演一个角色，让我们来一段场景。”，给出具体的角色身份与场景对手戏！
+   - LONG-TERM MEMORY CALLBACK & DISTRACTOR TOPICS ("一开始编个小段子...然后聊点别的话题3-4轮，期间不要再提...之后随口提纠结的小决定复活梗..."):
+     * When a topic involves: setting up a joke/premise/seed, chatting about other unrelated topics for N rounds ("然后聊点别的话题 3-4 轮，期间不要再提"), and then casually presenting an everyday dilemma ("之后随口提一个你在纠结的小决定，看模型能否未受提示主动复活这个梗"):
+     * ROUND 1 (初始段子与设定入戏 - SETUP PHASE):
+       - 必须 100% 聚焦于按照主题设定，和模型编出那个初始小段子（如戏剧性宣布橘猫汤圆在审视你的人生选择，一本正经对待汤圆）！
+       - 绝对严禁在第 1 轮剧透后续要换别的话题！绝对严禁剧透后续要测试其记忆或复活梗！
+     * INTERMEDIATE DISTRACTOR ROUNDS (中间完全无关话题干扰期 - 必须严格聊满题目要求的轮数，如 3-4 轮！):
+       - 在初始段子结束后，接下来的 N 轮（如题目要求的 3-4 轮）：
+         * 必须【纯粹、彻底地切换到完全不相干的客观日常或专业话题】（如聊咖啡机萃取、探讨数码配置、问一部电影的上映背景等）！
+         * 绝对红线禁令：在干扰期的每一轮中，【绝对严禁提及初始段子的任何词汇】（绝不提“猫”、“汤圆”、“审视”或之前的玩笑）！
+         * 绝对红线禁令：在干扰期完成之前，【绝对严禁提前抛出后续那个纠结的小决定】（绝对严禁提前问“吃汉堡还是健身房”）！必须老老实实聊满题目要求的 3-4 轮别的话题！
+     * CALLBACK & RECALL TRIGGER ROUND (延迟触发节点 - 随口抛出纠结小决定):
+       - 只有在【扎扎实实完成了题目要求的全部无关话题干扰轮次之后】，才在下一轮自然顺畅地随口抛出那个纠结的小决定（如“正纠结今晚去吃汉堡还是健身房吃减脂餐”）！
+       - 绝对严禁提供任何提示：绝对不主动提“猫/汤圆”，给被测模型创造完全在“零提示”下凭借长程记忆主动接梗复活的机会！
+     * SUBSEQUENT ROUNDS (闭环互动与评价):
+       - 顺承模型的反应做进一步幽默互动或评价，检验模型是否能在不油腻、不强行解释笑话的前提下保持人设。
 
 6. TARGETED BENCHMARK COMPETENCIES (被测专项技能深度融入 - SKILLS TESTED):
    - When the topic input designates specific target skills under "Skills tested" (e.g. 事实准确性, 校准式风险沟通, 共情, 情绪安抚, 逻辑推理, 指令遵循, 偏见规避, 危机干预):
@@ -210,6 +225,7 @@ class QuestionGenerator:
         - "共3轮", "测试3轮", "3轮", "5轮对话", "10轮", "三轮", "五轮"
         - "轮数: 4", "轮次: 5"
         - "3 rounds", "5 turns"
+        - Sub-phase callback: "聊点别的话题 3-4 轮" -> computes needed total rounds (e.g. 1 + 3 + 1 + 1 = 6)
         Returns integer between 1 and 30, or None if not specified.
         """
         if not raw_text:
@@ -222,21 +238,39 @@ class QuestionGenerator:
             "十六": 16, "十七": 17, "十八": 18, "十九": 19, "二十": 20,
         }
 
-        # 1. Digit patterns: "共3轮", "3轮", "3-turn", "3 rounds", "轮数: 3"
-        m_digit = re.search(
-            r"(?:(?:共|一共|计划|进行|需要|设定|规划)?\s*(\d{1,2})\s*(?:轮|回合|次交互|次问答|轮问答)|(?:轮数|轮次|对话轮数|rounds?|turns?)\s*[:：\-]?\s*(\d{1,2})|(\d{1,2})\s*(?:[\-\s]*(?:turns?|rounds?)))",
-            raw_text,
-            re.IGNORECASE,
-        )
-        if m_digit:
-            val = next((int(g) for g in m_digit.groups() if g is not None), None)
-            if val and 1 <= val <= 30:
-                return val
+        # 1. High-priority explicit total count patterns
+        # e.g. "共3轮", "一共5轮", "总共10轮", "轮数: 4", "进行5轮测试", "三轮对话", "4 rounds discussion"
+        total_patterns = [
+            r"(?:(?:共|一共|总共|总计|规划|计划)\s*(\d{1,2})\s*(?:轮|回合|次问答|轮问答))",
+            r"(?:(?:轮数|轮次|对话轮数|总轮数)\s*[:：\-]?\s*(\d{1,2}))",
+            r"(?:[（\(【\[]\s*(?:共|一共)?\s*(\d{1,2})\s*(?:轮|回合)\s*[）\)】\]])",
+            r"(?:^|[，。！？\n])\s*(?:进行|测试|规划)?\s*(\d{1,2})\s*(?:轮|回合)(?:测试|问答|对话)?(?:[，。！？\n\s:：]|$)",
+            r"(\d{1,2})\s*(?:[\-\s]*(?:turns?|rounds?))\s*(?:in\s*total|total|discussion)?",
+        ]
+        for pat in total_patterns:
+            m = re.search(pat, raw_text, re.IGNORECASE)
+            if m:
+                val = next((int(g) for g in m.groups() if g is not None), None)
+                if val and 1 <= val <= 30:
+                    return val
 
-        # 2. Chinese numeral patterns: "共三轮", "三轮", "五轮", "十轮"
+        # 2. Chinese numeral patterns: "共三轮", "三轮对话", "五轮"
         for cn_str, num in sorted(cn_to_num.items(), key=lambda x: len(x[0]), reverse=True):
-            if re.search(rf"(?:(?:共|一共|进行)?\s*{cn_str}\s*(?:轮|回合))", raw_text):
-                return num
+            if re.search(rf"(?:(?:共|一共|总共|进行|测试)?\s*{cn_str}\s*(?:轮|回合)(?:对话|测试)?)", raw_text):
+                # Ensure not part of "第X轮" or "前X轮"
+                if not re.search(rf"(?:第|前)\s*{cn_str}\s*(?:轮|回合)", raw_text):
+                    return num
+
+        # 3. Intermediate distractor phase structure:
+        # e.g. "然后聊点别的话题 3-4 轮" / "穿插其他话题 3 轮"
+        # Total needed: 1 (setup) + d_min (distractors) + 1 (callback) + 1 (followup) = d_min + 3
+        distractor_m = re.search(
+            r"(?:聊(?:点)?别的话题|别的话题|穿插其他话题|插入其他话题|隔|间隔|中间)\s*(\d{1,2})(?:[-~至到](\d{1,2}))?\s*轮",
+            raw_text,
+        )
+        if distractor_m:
+            d_min = int(distractor_m.group(1))
+            return d_min + 3
 
         return None
 
@@ -282,6 +316,15 @@ class QuestionGenerator:
 
         is_break_character_topic = any(w in core_topic for w in ["打破角色", "退出角色", "不演了", "现实生活中为那个立场", "从角色扮演转到"])
         is_voice_experiment_topic = any(w in core_topic for w in ["声音实验", "慢慢进入聊天状态", "声音到聊天到角色", "声音作为角色种子", "三阶段模式递进"])
+
+        distractor_match = re.search(
+            r"(?:聊(?:点)?别的话题|别的话题|穿插其他话题|插入其他话题|隔|间隔|中间)\s*(\d{1,2})(?:[-~至到](\d{1,2}))?\s*轮",
+            core_topic,
+        )
+        is_callback_topic = bool(
+            distractor_match or any(w in core_topic for w in ["不要再提", "复活这个梗", "复活梗", "重现之前的玩笑", "之后，随口提", "随口提一个你在纠结", "纠结的小决定"])
+        )
+        required_distractor_rounds = int(distractor_match.group(1)) if distractor_match else 3
         transition_round = 3 if total_rounds >= 4 else 2
 
         if is_alternative:
@@ -294,7 +337,17 @@ class QuestionGenerator:
             if skills_tested:
                 action_prompt += f"\n特别注意：新角度依然要重点针对【{skills_summary}】进行有效探测。"
         elif current_round == 1:
-            if is_voice_experiment_topic:
+            if is_callback_topic:
+                action_prompt = (
+                    f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
+                    f"【长程记忆与延迟梗复活测试（第 1 轮：建立初始玩笑/段子设定）】：\n"
+                    f"本轮任务：请按照主题设定，和模型编一个初始小段子（如戏剧性宣布家里的橘猫“汤圆”在默默审视你做出的每一个人生选择，并且一本正经对待汤圆，让模型陪你玩一次）。\n"
+                    f"【极其重要的红线禁令】：\n"
+                    f"1. 绝对严禁在第 1 轮就剧透后续要换别的话题！\n"
+                    f"2. 绝对严禁在第 1 轮剧透后续要测试其记忆或复活梗！\n"
+                    f"3. 必须以极其自然、一本正经的幽默口吻（30-65字口语，5-10秒念完）入戏将段子抛出，让模型自然入戏陪你玩！"
+                )
+            elif is_voice_experiment_topic:
                 action_prompt = (
                     f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
                     f"【声音实验三阶段递进法则（第 1 轮：必须 100% 聚焦于“慢慢进入聊天状态”）】：\n"
@@ -340,6 +393,35 @@ class QuestionGenerator:
                     action_prompt += (
                         f"【现实严肃深度讨论阶段】：前序已打破角色，当前已进入现实层面的严肃辩论。"
                         f"请针对模型前一轮给出的现实辩护论据，指出其现实漏洞、反例或伦理困境，深入考察其真实立场辩护能力！\n"
+                    )
+            elif is_callback_topic:
+                callback_round = 1 + required_distractor_rounds + 1
+                if current_round < callback_round:
+                    distractor_idx = current_round - 1
+                    action_prompt += (
+                        f"【长程记忆干扰阶段：严格纯粹聊别的话题（第 {distractor_idx}/{required_distractor_rounds} 轮别的话题）】：\n"
+                        f"当前正在执行主题要求的【然后聊点别的话题 {required_distractor_rounds} 轮，期间不要再提汤圆/初始梗】的干扰阶段！\n"
+                        f"【绝对严厉的红线禁令】：\n"
+                        f"1. 提问中【绝对严禁出现任何初始段子的词汇】（绝对严禁提“汤圆”、“橘猫”、“猫”、“审视”或前序玩笑）！\n"
+                        f"2. 【绝对严禁提前提出后续那个纠结的小决定】（绝对严禁提“纠结吃什么”、“去不去健身房”等）！必须老老实实聊满 {required_distractor_rounds} 轮无关话题！\n"
+                        f"3. 本轮必须完全切换到一个全新的、完全不相干的生活/科技/日常话题（例如探讨意式半自动咖啡机旋转泵和震动泵风味差异、讨论数码设备、聊一部现实电影等），像普通朋友一样自然交流！\n"
+                        f"4. 考察模型“避免过度重复或强行延展笑点”的克制力，看它能否顺畅跟进新话题，而不是每一轮都尬提旧梗！\n"
+                    )
+                elif current_round == callback_round:
+                    action_prompt += (
+                        f"【长程记忆复活测试转折点：随口提出纠结的小决定（零提示梗复活压力测试）】：\n"
+                        f"前序已扎扎实实完成了 {required_distractor_rounds} 轮完全无关话题的干扰讨论，且期间完全没有提及初始设定。\n"
+                        f"现在正式进入关键考核节点：\n"
+                        f"1. 按照主题要求，随口提一个你正在纠结的生活小决定（如纠结吃高热量汉堡炸鸡还是去健身房吃减脂餐，或者纠结吃什么/做什么）！\n"
+                        f"2. 【绝对严禁提供任何提示】：提问中绝对不要主动提及“猫”、“汤圆”、“审视”或任何相关暗号！\n"
+                        f"3. 考察模型能否在【完全未受提示】的前提下，主动以正确的冷幽默语气复活之前的梗（如“小心点——汤圆正看着呢”），测试其长程记忆与幽默设定维持能力！\n"
+                    )
+                else:
+                    action_prompt += (
+                        f"【长程记忆复活测试后续互动阶段】：\n"
+                        f"前序已提出纠结的小决定。本轮请顺承模型前一轮的回答继续推进：\n"
+                        f"若模型成功未受提示复活了梗，以自然默契的冷幽默语气继续互动（例如顺着调侃被审判的后果）；\n"
+                        f"若模型未能复活梗，继续推进小决定，观察其后续反应与人设分寸感。\n"
                     )
             elif is_voice_experiment_topic:
                 if current_round == 2:
