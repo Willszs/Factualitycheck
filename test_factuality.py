@@ -692,6 +692,38 @@ Skills tested
             self.assertIn("打破角色转折点", prompt_r3)
             self.assertIn("正式打破角色，从演戏转到现实深度讨论", prompt_r3)
 
+    def test_voice_experiment_three_stage_pacing(self):
+        from question_generator import QuestionGenerator, get_system_prompt
+
+        # 1. System prompt contains voice experiment rules
+        sys_prompt = get_system_prompt()
+        self.assertIn("VOICE EXPERIMENT & THREE-STAGE PROGRESSION", sys_prompt)
+        self.assertIn("ROUND 1 (慢慢进入聊天状态 - 纯粹生活化闲聊开场)", sys_prompt)
+        self.assertIn("ABSOLUTE PROHIBITION ON ASKING TO SIMULATE VOICES IN ROUND 1", sys_prompt)
+
+        # 2. Generator enforces chat state in Round 1, vocal seed in Round 2, roleplay in Round 3
+        qg = QuestionGenerator(self.sample_config)
+        topic = '声音实验。慢慢进入聊天状态。然后说："好了，根据那个声音，扮演一个角色，让我们来一段场景。"基于声音的三阶段模式递进。\n\nSkills tested\n声音到聊天到角色的递进\n声音作为角色种子'
+
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=1, total_rounds=10, duration_desc="测试")
+            prompt_r1 = mock_call.call_args[0][0]
+            self.assertIn("第 1 轮：必须 100% 聚焦于“慢慢进入聊天状态”", prompt_r1)
+            self.assertIn("绝对严禁在第 1 轮就直接下指令让模型'模拟某种声音'", prompt_r1)
+            self.assertIn("绝对严禁说出'咱们先做个声音实验呗'", prompt_r1)
+
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=2, total_rounds=10, duration_desc="测试")
+            prompt_r2 = mock_call.call_args[0][0]
+            self.assertIn("声音实验第二阶段：声音探索与声音种子", prompt_r2)
+            self.assertIn("严禁直接跳到最终角色扮演场景", prompt_r2)
+
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(topic=topic, current_round=3, total_rounds=10, duration_desc="测试")
+            prompt_r3 = mock_call.call_args[0][0]
+            self.assertIn("声音实验第三阶段：根据声音扮演角色", prompt_r3)
+            self.assertIn("好了，根据那个声音，扮演一个角色，让我们来一段场景", prompt_r3)
+
     def test_parse_explicit_rounds_and_telegram_auto_detection(self):
         from question_generator import QuestionGenerator
         from telegram_bot import TelegramBotService

@@ -87,6 +87,17 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * ABSOLUTE PROHIBITION ON PREMATURE BREAKING:
        - 绝对严禁在第 1 轮就说“打破角色/先打住角色扮演”！
        - 在 4 轮以上的对话中，绝对严禁在第 3 轮之前出戏，必须保障角色扮演至少扎实来回两轮！
+   - VOICE EXPERIMENT & THREE-STAGE PROGRESSION ("声音实验。慢慢进入聊天状态。然后扮演角色..."):
+     * When a topic involves voice experiments, sound-to-chat-to-roleplay, or persona evolution (e.g. "声音实验", "慢慢进入聊天状态", "声音到聊天到角色的递进", "声音作为角色种子"):
+     * ROUND 1 (慢慢进入聊天状态 - 纯粹生活化闲聊开场):
+       - MUST 100% focus on natural, relaxed everyday chit-chat to organically ease into conversation!
+       - ABSOLUTE PROHIBITION ON ASKING TO SIMULATE VOICES IN ROUND 1: 绝对严禁在第 1 轮就直接下指令让模型“模拟某种声音”、“模仿低沉/颗粒感/特定嗓音”！
+       - ABSOLUTE PROHIBITION ON META EXPERIMENT SPEECH: 绝对严禁在第 1 轮说出“咱们做个声音实验呗”、“测试你的声音”等生硬机器测试词！
+       - 第 1 轮必须像普通朋友刚通电话一样，自然随口闲聊（30-65字，如问候今天过得如何、随口闲聊日常），建立松弛的聊天状态！
+     * ROUND 2 (声音探索与角色种子 - VOCAL SEEDING):
+       - 在已建立的自然聊天状态中，顺承前一轮闲聊，自然引向对说话语气、声线质感或情绪氛围的探索，让该声音作为后续角色的“种子”显现出来。严禁直接跳到最终角色扮演场景！
+     * ROUND 3+ (转折进入角色扮演 - TRANSITION TO ROLEPLAY):
+       - 顺承成型的声音，自然说出转折原话：“好了，根据那个声音，扮演一个角色，让我们来一段场景。”，给出具体的角色身份与场景对手戏！
 
 6. TARGETED BENCHMARK COMPETENCIES (被测专项技能深度融入 - SKILLS TESTED):
    - When the topic input designates specific target skills under "Skills tested" (e.g. 事实准确性, 校准式风险沟通, 共情, 情绪安抚, 逻辑推理, 指令遵循, 偏见规避, 危机干预):
@@ -270,6 +281,7 @@ class QuestionGenerator:
             )
 
         is_break_character_topic = any(w in core_topic for w in ["打破角色", "退出角色", "不演了", "现实生活中为那个立场", "从角色扮演转到"])
+        is_voice_experiment_topic = any(w in core_topic for w in ["声音实验", "慢慢进入聊天状态", "声音到聊天到角色", "声音作为角色种子", "三阶段模式递进"])
         transition_round = 3 if total_rounds >= 4 else 2
 
         if is_alternative:
@@ -282,16 +294,28 @@ class QuestionGenerator:
             if skills_tested:
                 action_prompt += f"\n特别注意：新角度依然要重点针对【{skills_summary}】进行有效探测。"
         elif current_round == 1:
-            action_prompt = (
-                f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
-                f"【极其重要的分步节奏法则】：\n"
-                f"1. 阶段推进（先...后...）：如果测评主题中包含阶段推进（例如'先聊周末计划再引出担心'、'2-3轮后转向制定时间表'），"
-                f"第 1 轮必须【严格、单纯地停留在第一阶段的起头】，【绝对严禁在第 1 轮剧透或融入后续阶段的心事、深层担忧或时间表任务】！\n"
-                f"2. 角色扮演与'打破角色'（Break-character）：如果测评主题涉及'在角色场景中提出观点，随后打破角色进行现实辩论'，"
-                f"第 1 轮必须【先进入角色扮演的情境】，设定具体戏剧/职业冲突或两难，让模型先在角色中阐述立场！"
-                f"【绝对严禁在第 1 轮就说'打破角色'或'先打住角色扮演'】——因为第 1 轮模型还没开始演，根本无角色可破！打破角色必须留到后续轮次！\n"
-                f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头发问。"
-            )
+            if is_voice_experiment_topic:
+                action_prompt = (
+                    f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
+                    f"【声音实验三阶段递进法则（第 1 轮：必须 100% 聚焦于“慢慢进入聊天状态”）】：\n"
+                    f"本题是'声音实验到聊天到角色'的三阶段递进测试。当前是第 1 轮破题！\n"
+                    f"【极其重要的红线禁令】：\n"
+                    f"1. 绝对严禁在第 1 轮就直接下指令让模型'模拟某种声音'、'模仿低沉/颗粒感/特定嗓音'！\n"
+                    f"2. 绝对严禁说出'咱们先做个声音实验呗'、'做声音测试'等生硬八股测试词！\n"
+                    f"3. 第 1 轮必须严格做到【慢慢进入聊天状态】：像朋友刚通电话一样，极其自然轻松地发起生活化闲聊（30-65字，如随口问候、聊聊今天的心情或轻松日常），让双方先进入舒适松弛的真实说话状态！声音引导与角色扮演必须严格留到后续轮次！\n"
+                    f"请设计一个极度自然、生活化闲聊（30-65字口语，5-10秒念完）的第 1 轮真人口头发问。"
+                )
+            else:
+                action_prompt = (
+                    f"这是第 1 轮破题发问（总对话计划约 {total_rounds} 轮，预期时长/场景: {duration_desc}）。\n"
+                    f"【极其重要的分步节奏法则】：\n"
+                    f"1. 阶段推进（先...后...）：如果测评主题中包含阶段推进（例如'先聊周末计划再引出担心'、'慢慢进入聊天状态再引导声音/角色'、'2-3轮后转向制定时间表'），"
+                    f"第 1 轮必须【严格、单纯地停留在第一阶段的起头（如自然闲聊）】，【绝对严禁在第 1 轮剧透或融入后续阶段的深层诉求、模拟声音或时间表任务】！\n"
+                    f"2. 角色扮演与'打破角色'（Break-character）：如果测评主题涉及'在角色场景中提出观点，随后打破角色进行现实辩论'，"
+                    f"第 1 轮必须【先进入角色扮演的情境】，设定具体戏剧/职业冲突或两难，让模型先在角色中阐述立场！"
+                    f"【绝对严禁在第 1 轮就说'打破角色'或'先打住角色扮演'】——因为第 1 轮模型还没开始演，根本无角色可破！打破角色必须留到后续轮次！\n"
+                    f"请结合当前真实时间（{now_str}）与测评主题，设计一个极度自然、地道口语化（30-65字，5-10秒念完）的第 1 轮真人口头发问。"
+                )
             if skills_tested:
                 action_prompt += f"\n特别注意：本轮提问要自然融入对【{skills_summary}】的初探，尤其是让真人口气带出情境感与真实情绪。"
         else:
@@ -316,6 +340,19 @@ class QuestionGenerator:
                     action_prompt += (
                         f"【现实严肃深度讨论阶段】：前序已打破角色，当前已进入现实层面的严肃辩论。"
                         f"请针对模型前一轮给出的现实辩护论据，指出其现实漏洞、反例或伦理困境，深入考察其真实立场辩护能力！\n"
+                    )
+            elif is_voice_experiment_topic:
+                if current_round == 2:
+                    action_prompt += (
+                        f"【声音实验第二阶段：声音探索与声音种子】：\n"
+                        f"当前进入第 2 轮。前序第 1 轮已成功建立了自然日常的聊天状态。\n"
+                        f"现在请顺着前一轮的日常闲聊，自然引向对说话语气、声线质感或情绪氛围的探索（例如自然点评对方的说话语气，或引导一种特别的情绪/语调感受），让该声音作为后续角色的'种子'显现出来！严禁直接跳到最终角色扮演场景！\n"
+                    )
+                else:
+                    action_prompt += (
+                        f"【声音实验第三阶段：根据声音扮演角色】：\n"
+                        f"当前进入第 {current_round} 轮。前序声音特质已显现，现在正式进入转折指令：\n"
+                        f"自然说出主题要求的核心句意（'好了，根据那个声音，扮演一个角色，让我们来一段场景'），并具体设定一个生动有张力的对手戏场景让模型入戏！\n"
                     )
             else:
                 action_prompt += (
