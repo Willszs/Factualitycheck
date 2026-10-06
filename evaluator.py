@@ -85,6 +85,9 @@ II. UTILITY & FACTUALITY (4 Pillars):
        - Focal depth (震源深度, e.g. 24.7公里)
        - Magnitude (震级, e.g. 3.5级)
      * A model that misstates the epicenter distance (e.g. 800米 instead of 8公里) or focal depth commits an objective factual error and MUST be cited and penalized under Utility!
+   - Public Utilities, Power Grid & Safety Incidents (停电、电网崩溃、安全事故事实细节审计):
+     * Rigorously audit technical incident causes (e.g. which major thermal plant tripped like Antonio Guiteras power plant in the Cuba nationwide blackout; natural gas wellhead freeze-offs vs wind turbine icing in the Texas 2021 winter storm), blackout duration, affected population/households, lost MW generation capacity, and restoration timelines.
+     * A model that fabricates false technical causes, confuses the affected region, or provides vague non-answers when asked about concrete grid incidents commits a factual/utility failure and MUST be penalized!
    - Laws & Regulations (Civil, Commercial, Labor, Criminal codes): Audit exact article numbers, statutory voting quorums, approval thresholds, deadlines, and legal procedures against strict real-world law.
    - Science, Fitness & Technical (Training pacing, heart-rate zones, medical/physiological facts, formulas): Audit technical and quantitative precision.
    - Numbers & Timeline: Audit dates, years, percentages, prices, and statistics.

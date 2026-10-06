@@ -547,7 +547,35 @@ Skills tested
         self.assertIn("Bridging Quality", violations_str)
         self.assertIn("Looping", violations_str)
 
+    def test_blackout_and_incident_grounding_and_rules(self):
+        from search_grounding import SearchGrounding
+        from question_generator import get_system_prompt as get_qg_prompt
+        from evaluator import get_system_prompt as get_eval_prompt
+
+        # 1. Search Grounding triggers for blackouts, power grids, and accidents
+        self.assertTrue(SearchGrounding.should_search("大规模停电发生，电网什么时候恢复？"))
+        self.assertTrue(SearchGrounding.should_search("古巴全国大停电，是哪座电厂故障？"))
+        self.assertTrue(SearchGrounding.should_search("突发电网跳闸事故"))
+
+        # 2. Query extraction for blackouts
+        queries_generic = SearchGrounding.extract_search_queries("突发大规模停电事故")
+        self.assertTrue(any("停电" in q for q in queries_generic))
+
+        queries_cuba = SearchGrounding.extract_search_queries("古巴全国大规模停电原因")
+        self.assertTrue(any("古巴" in q for q in queries_cuba))
+        self.assertTrue(any("停电" in q for q in queries_cuba))
+
+        # 3. Question Generator has specific location anchoring rule for incidents/outages
+        qg_prompt = get_qg_prompt()
+        self.assertIn("事故、停电、灾害类题目必须明确具体地点与事件", qg_prompt)
+        self.assertIn("古巴", qg_prompt)
+
+        # 4. Evaluator prompt has power grid and blackout factual audit
+        eval_prompt = get_eval_prompt()
+        self.assertIn("停电、电网崩溃、安全事故事实细节审计", eval_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

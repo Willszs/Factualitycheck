@@ -102,6 +102,19 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
    - SPOKEN AUTHENTICITY WITH PROFESSIONAL CORE:
      The question must retain natural, effortless spoken cadence (30-65 chars) so a human can comfortably speak it in 5-10 seconds, but beneath the casual tone lies a laser-targeted professional exam probe!
 
+8. MANDATORY SPECIFIC LOCATION & SCENARIO ANCHORING FOR INCIDENTS, OUTAGES & DISASTERS (事故、停电、灾害类题目必须明确具体地点与事件，绝对严禁泛泛而谈):
+   - ABSOLUTE BAN ON VAGUE/PLACELESS QUESTIONS (严禁无地点空洞提问):
+     When a topic involves public utility failures, disasters, or accidents (e.g. 大规模停电、电网崩溃、限电、山火、火灾、燃气爆炸、洪涝、突发事故):
+     NEVER generate placeless, vague questions like "如果发生大规模停电该怎么办？" or "听说有些地方停电了，怎么回事？". Such vague questions completely destroy the benchmark because tested models will just regurgitate generic boilerplate safety tips ("准备手电筒/蜡烛/充电宝"), completely dodging factual verification!
+   - MANDATORY REAL-WORLD LOCATION & SPECIFIC EVENT ANCHORING (必须具体具名具地):
+     1) If real-time search results (search grounding) provide a recent blackout, outage, or accident event (e.g. 古巴全国电网大停电、厄瓜多尔大停电、得州电网严寒跳闸、四川夏季极端高温负荷限电等): YOU MUST DIRECTLY USE THAT EXACT SPECIFIC LOCATION AND EVENT!
+     2) If search grounding does not return recent results, YOU MUST STILL ANCHOR TO A WELL-KNOWN, SPECIFIC REAL-WORLD LOCATION OR EVENT (e.g. 明确指定是古巴全国电网瘫痪大停电、美国得州暴风雪大停电、欧洲某次局部跨国跳闸大停电、或国内某省极端天气限电停电等具体真实地点与场景)，明确指出国家/省份/城市！
+     3) The probe must target concrete facts: 停电的具体诱因（如哪座主力热电厂跳闸、燃料短缺、输电线路覆冰折断、还是负荷过高拉闸限电）、波及的人口/户数、受损电网恢复进度，直接考察被测模型对真实事故起因、规模与电网工程细节的事实把握，让被测模型无法打太极！
+   - SPOKEN ORAL EXAMPLES:
+     * Good: "哎，古巴最近全国电网大停电到底是哪座主要热电厂跳闸引发的？好像全国一千多万人全断电了，现在电网抢修恢复到什么程度了？"
+     * Good: "之前得州冬季暴风雪那次全州大停电，核心诱因到底是风电结冰脱网，还是天然气井口冻结导致火电机组缺气停机啊？"
+     * FORBIDDEN: "如果突然遇到大规模停电，我们应该做些什么准备？" (STRICTLY PROHIBITED! Vague and placeless!)
+
 OUTPUT FORMAT:
 Directly output in pure Chinese without conversational pleasantries or preamble:
 【提问内容】: (30-65字的纯口语提问，直接张嘴就能念出来，5-10秒念完)
@@ -234,6 +247,13 @@ class QuestionGenerator:
                 "并自然融入真人口语提问中，严禁使用泛指代称，必须给出确切具体的真实名字！"
             )
 
+        if any(w in core_topic for w in ["停电", "大停电", "断电", "电网", "限电", "事故", "火灾", "爆炸", "山火", "坍塌", "灾害"]):
+            action_prompt += (
+                "\n\n【关键约束：事故/停电/灾害题目必须具名具体地点与事件】：\n"
+                "本题属于停电/事故/灾害类测试。提问中【必须明确指定具体的国家、省份或城市】（如古巴全国大停电、得州电网严寒跳闸、某省夏季限电等具体真实事件），"
+                "绝不能泛泛提问'如果发生停电该怎么办'等没有地点的空洞常识题！必须考察具体事故的诱因（哪个主力电厂/变电站跳闸）、受影响规模或电网恢复进展，以硬核事实考倒模型！"
+            )
+
         user_content = (
             f"=== 当前现实真实时间 ===\n{now_str}\n\n"
             f"=== 测评主题 ===\n{core_topic}{skills_directive}{grounding_section}\n\n"
@@ -248,7 +268,8 @@ class QuestionGenerator:
             f"5. 绝对严禁任何占位符（零“某某”/“XX”）：严禁出现“某某电影”、“某部电影”、“某某话剧”、“某某”、“XX”、“[待填]”！提问必须可以直接张嘴念出来。若提到电影、戏剧、音乐、活动，必须使用真实存在的具体知名作品（如《抓娃娃》、《第二十条》等），或用自然口语让被测 AI 自己列举真实在映作品！绝不让用户自己去查名字！\n"
             f"6. 联网真实具名原则：对于手机、电子产品、新闻、比赛、球队等实时资讯，系统已通过全网检索提供了当前现实中的最新真实实体。必须直接使用检索到的真实具体名字（如具体手机型号、具体球队对决），绝不凭空瞎猜未发布的虚构型号！\n"
             f"7. 严禁在提问中捏造假前提：绝不能在提问里胡乱虚构假天气（如“这周末下雨”）、虚构不存在的假活动。让被测 AI 自己去说出真实的事实！\n"
-            f"8. 格式：直接以【提问内容】开头。\n"
+            f"8. 事故、停电、灾害类题目必须明确具体地点与事件（绝对严禁泛泛而谈）：若主题涉及停电、电网、火灾、爆炸、交通事故、自然灾害等，提问绝对严禁没有地点泛泛问‘如果停电该怎么办’等空洞废话！必须结合检索结果或真实世界具体事件，明确锁定具体国家/省份/城市（如古巴全国大停电、得州暴风雪大停电、某地具体事故），针对具体电厂故障、电网跳闸诱因、波及人口或恢复进展进行事实压力测试！\n"
+            f"9. 格式：直接以【提问内容】开头。\n"
         )
 
         raw_result = self._call_gemini(user_content, topic_context=topic, current_round=current_round)

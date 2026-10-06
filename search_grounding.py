@@ -27,6 +27,7 @@ class SearchGrounding:
         "电影", "上映", "院线", "票房", "剧", "音乐节", "演唱会", "阵容", "演出", "展演",
         "疾病", "病毒", "疫情", "感染", "传染", "呼吸道", "流感", "新冠", "支原体", "登革热", "猴痘", "疫苗", "航班", "机舱",
         "地震", "震中", "震级", "海啸", "台风", "灾情", "暴雨", "洪涝", "气象署", "地震台网",
+        "停电", "大停电", "断电", "断水", "跳闸", "电网", "供电", "限电", "拉闸限电", "变电站", "火灾", "山火", "燃气爆炸", "爆炸", "坍塌", "事故",
         "最新", "刚发布", "刚刚", "最近", "近期", "昨天", "今天", "本周", "这周末",
         "关税", "贸易", "政策", "条款", "法规", "法案", "规定", "税率", "外贸", "豁免",
     ]
@@ -97,6 +98,20 @@ class SearchGrounding:
                 queries.append(f"{loc} 台风 预警 应急".strip())
             else:
                 queries.append(f"{loc} 自然灾害 灾情 最新".strip())
+
+        # 7. Public Utilities, Blackouts & Infrastructure Accidents (停电、断电、电网、火灾、爆炸等)
+        elif any(w in topic for w in ["停电", "大停电", "断电", "电网", "限电", "供电", "跳闸", "火灾", "爆炸", "事故"]):
+            loc_match = re.search(r"(古巴|得州|德州|加州|厄瓜多尔|西班牙|乌克兰|基辅|四川|广东|北京|上海|浙江|重庆|辽宁|[A-Za-z\u4e00-\u9fa5]+(?:省|市|县|区|国))", topic)
+            loc = loc_match.group(1) if loc_match else ""
+            if any(w in topic for w in ["停电", "断电", "电网", "限电", "供电", "跳闸"]):
+                if loc:
+                    queries.append(f"{loc} 大规模停电 电网 事故 最新 {now_year}".strip())
+                    queries.append(f"{loc} 停电 原因 恢复 进展".strip())
+                else:
+                    queries.append(f"最新大规模停电 电网崩溃 事故 国家 城市 {now_year}".strip())
+                    queries.append(f"大停电 最新 新闻 原因 进展".strip())
+            else:
+                queries.append(f"{loc} 事故 最新 通报 原因 {now_year}".strip())
 
         # Fallback: clean the topic itself into a search query (strip benchmark metadata & Skills tested)
         clean_topic = re.sub(r"(?i)(?:skills?\s+tested|skills?|测试技能|考察技能|测评技能|考核技能)[\s\S]*$", "", topic)
@@ -266,12 +281,22 @@ class SearchGrounding:
             elif "台风" in combined:
                 queries.append(f"{loc} 台风 路径 登陆 最新".strip())
 
-        # 6. Extract core domain keywords from Turn 1 (strip conversational noise)
+        # 6. Public utility failures, blackouts & infrastructure accidents (e.g. 大规模停电、电网跳闸)
+        if any(w in combined for w in ["停电", "大停电", "断电", "电网", "限电", "供电", "跳闸", "变电站"]):
+            loc_match = re.search(r"(古巴|得州|德州|加州|厄瓜多尔|西班牙|乌克兰|基辅|四川|广东|北京|上海|浙江|重庆|[A-Za-z\u4e00-\u9fa5]+(?:省|市|县|区|国))", combined)
+            loc = loc_match.group(1) if loc_match else ""
+            if loc:
+                queries.append(f"{loc} 停电 电网 最新 原因 进展 {now_year}".strip())
+                queries.append(f"{loc} 大规模停电 恢复 事故".strip())
+            else:
+                queries.append(f"最新大规模停电 电网崩溃 原因 通报 {now_year}".strip())
+
+        # 7. Extract core domain keywords from Turn 1 (strip conversational noise)
         lines = [line.strip() for line in transcript_a.splitlines() if line.strip()]
         if lines:
             first_user_line = lines[0]
             matched_topics = []
-            for topic_kw in ["国际贸易政策", "关税变动", "贸易政策", "最新手机", "新手机", "折叠屏", "在映电影", "最新比赛", "地震", "震中"]:
+            for topic_kw in ["国际贸易政策", "关税变动", "贸易政策", "最新手机", "新手机", "折叠屏", "在映电影", "最新比赛", "地震", "震中", "停电", "大停电", "电网"]:
                 if topic_kw in first_user_line and topic_kw not in matched_topics:
                     matched_topics.append(topic_kw)
             if matched_topics:
