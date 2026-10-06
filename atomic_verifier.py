@@ -41,6 +41,9 @@ AUDIT SCOPE & METHODOLOGY:
    - Blackout root causes, power plant names, lost MW generation, affected population.
    - Dates, milestones, and temporal consistency.
    - Medicine, physiology, and formulas.
+4. Film, TV Dramas, Literature & Entertainment:
+   - CRITICAL CAUTION: NEVER declare a TV drama, movie, or book title "fabricated" or "non-existent" simply because it is recent (e.g. 2024-2026 productions like 《秋雪漫过的冬天》) or absent from your pre-training cutoff!
+   - Only flag media claims when there is positive, verifiable proof of factual distortion (e.g. mischaracterizing a heavy historical war film like 《得闲谨制》 as a released comedy on Youku).
 
 AUDITOR DIRECTIVE:
 - Audit BOTH Model A and Model B across ALL turns with forensic precision.

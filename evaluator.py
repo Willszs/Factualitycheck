@@ -206,6 +206,9 @@ STRICT FORMAT & LENGTH RULES:
 - NO markdown headers (do NOT write "### Conversational Dynamics", "### Utility", or "### Verdict").
 - NO bullet points (*, -) or numbered lists. Write flowing, natural sentences within each paragraph.
 - NO conversational filler, greetings, or sign-offs. Start directly with "For conversational dynamics I prefer".
+- MEDIA & ENTERTAINMENT FACTUAL VERIFICATION CAUTION:
+  * Do NOT accuse a model of "fabricating" or "inventing" a drama, movie, or show title simply because you personally do not recall it! Many new series (e.g. 2024-2026 productions like 《秋雪漫过的冬天》) are genuine real-world productions.
+  * Only penalize factual errors on media if there is a concrete verifiable distortion (e.g. claiming a heavy war film is a lighthearted comedy, or claiming an unreleased theatrical film is already streaming as a comedy series on Youku).
 {budget_block}
   * ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):
     - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples (好的模型举出一到两个示例带过即可). Absolutely DO NOT write long, redundant compliments!

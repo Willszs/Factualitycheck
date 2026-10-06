@@ -257,6 +257,14 @@ class SearchGrounding:
                 if len(clean_m) >= 3 and clean_m not in queries:
                     queries.append(f"{clean_m} {now_year}")
 
+        # 2.5 Film, TV drama, and cultural works in Chinese brackets: 《...》
+        for title in re.findall(r"《([^》]{2,20})》", combined):
+            clean_title = title.strip()
+            if clean_title and len(clean_title) >= 2:
+                q_title = f"{clean_title} 电视剧 电影 主演 剧情 上映"
+                if q_title not in queries:
+                    queries.append(q_title)
+
         # 3. Holiday travel, highway traffic, and new energy vehicle metrics (e.g. 国庆 高速 电车 抢桩 流量)
         if any(w in combined for w in ["国庆", "节假日", "春运", "中秋", "五一"]):
             if any(w in combined for w in ["电车", "新能源", "纯电", "充电桩", "抢桩"]):
