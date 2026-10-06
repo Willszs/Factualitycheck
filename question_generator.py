@@ -72,16 +72,21 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
      * ROUND 1 (破题开场): MUST 100% focus solely on the initial hook (e.g. asking about weekend movie plans/recommendations, or sharing initial feelings about moving).
      * ABSOLUTE PROHIBITION ON SPOILING LATER PHASES IN ROUND 1: NEVER mix the subsequent worry, deeper anxiety, or transition tasks ("制定时间表") into Round 1! Real humans do not pour out their deepest inner anxiety or transition to practical checklists in the very first sentence.
      * SUBSEQUENT ROUNDS: Smoothly and naturally transition into the later phase at the designated turn (e.g. introducing the anxiety in Round 2, or transitioning to "好了别丧了，帮我做时间表" at Round 3).
-   - ROLEPLAY & BREAK-CHARACTER TRANSITION TOPICS (角色扮演与“打破角色/退出角色”场景的严格时序推进):
+   - ROLEPLAY & BREAK-CHARACTER TRANSITION TOPICS (角色扮演与“打破角色/退出角色”场景的严格时序与多轮来回节奏):
      * When the benchmark topic involves: "在角色场景中，角色提出了一个观点。随后打破角色，对模型说：'好了，但说真的，在现实生活中为那个立场辩护'。从角色扮演转到深度讨论":
-     * ROUND 1 (必须先入戏 / 建立角色场景与抛出观点):
-       - ROUND 1 MUST 100% BE IN-CHARACTER! The user must initiate the dramatic, historical, or professional roleplay scenario, and prompt the character to propose that practical, controversial, or dilemma viewpoint!
-       - ABSOLUTE BAN ON BREAKING CHARACTER IN ROUND 1 (绝对严禁第1轮直接打破角色):
-         In Round 1, the model has NOT started roleplaying yet, and has NOT proposed any character viewpoint! You CANNOT say "先打住角色扮演" or "好了说真的退出角色" in Round 1! Breaking character before entering the character completely destroys the benchmark premise!
-     * ROUND 2 / SUBSEQUENT ROUNDS (后续轮次才执行“打破角色/出戏求真”):
-       - Only in Round 2 (or subsequent turns) AFTER the model has delivered its in-character perspective in Round 1, should the user deliver the break-character prompt:
-         "好了，先出戏一下，不演了。说真的，你刚才在角色里提的那个观点挺实在的，如果放到现实生活中，你真能为那个立场拿出站得住脚的论据辩护吗？"
-       - This is the ONLY way to properly test the model's target skills: "退出角色以进行真正的辩论" and "察觉到严肃性转变"!
+     * ROLEPLAY ROUND PACING (长对话中角色扮演必须来回至少两轮):
+       - 中长对话 (总轮数 >= 4 轮，如 4轮、5轮、10轮):
+         * ROUND 1 (入戏开场): 必须 100% 入戏！设定戏剧、历史或职业情境冲突，让模型在角色身份下发表初步立场；
+         * ROUND 2 (继续入戏，推向高潮): 必须【依然保持在角色中（In-Character）】！作为对手角色继续施压或展开交锋，诱导模型在角色身份下把那个最实在、最尖锐、最扎心的立场彻底说透！
+         * ROUND 3 (打破角色转折点): 在完成至少两轮真实角色扮演后，在第 3 轮才由用户正式出戏：“好了，先出戏一下，不演了。说真的，你刚才在角色里提的那个立场挺实在的。放到现实生活中，你真能为那个立场拿出站得住脚的论据辩护吗？”
+         * ROUND 4..N (现实深度辩论): 彻底出戏，围绕现实事实、论据漏洞、反例与价值观展开严肃深度辩论！
+       - 短对话 (总轮数 <= 3 轮):
+         * ROUND 1: 入戏，抛出情境冲突与立场；
+         * ROUND 2: 打破角色，出戏进入严肃现实辩护；
+         * ROUND 3: 现实深度质询与总结。
+     * ABSOLUTE PROHIBITION ON PREMATURE BREAKING:
+       - 绝对严禁在第 1 轮就说“打破角色/先打住角色扮演”！
+       - 在 4 轮以上的对话中，绝对严禁在第 3 轮之前出戏，必须保障角色扮演至少扎实来回两轮！
 
 6. TARGETED BENCHMARK COMPETENCIES (被测专项技能深度融入 - SKILLS TESTED):
    - When the topic input designates specific target skills under "Skills tested" (e.g. 事实准确性, 校准式风险沟通, 共情, 情绪安抚, 逻辑推理, 指令遵循, 偏见规避, 危机干预):
@@ -186,6 +191,44 @@ class QuestionGenerator:
 
         return core_topic or raw_text.strip(), skills
 
+    @classmethod
+    def parse_explicit_rounds(cls, raw_text: str) -> Optional[int]:
+        """
+        Extracts explicit round count requested in topic string if present.
+        e.g.:
+        - "共3轮", "测试3轮", "3轮", "5轮对话", "10轮", "三轮", "五轮"
+        - "轮数: 4", "轮次: 5"
+        - "3 rounds", "5 turns"
+        Returns integer between 1 and 30, or None if not specified.
+        """
+        if not raw_text:
+            return None
+
+        cn_to_num = {
+            "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+            "十一": 11, "十二": 12, "十三": 13, "十四": 14, "十五": 15,
+            "十六": 16, "十七": 17, "十八": 18, "十九": 19, "二十": 20,
+        }
+
+        # 1. Digit patterns: "共3轮", "3轮", "3-turn", "3 rounds", "轮数: 3"
+        m_digit = re.search(
+            r"(?:(?:共|一共|计划|进行|需要|设定|规划)?\s*(\d{1,2})\s*(?:轮|回合|次交互|次问答|轮问答)|(?:轮数|轮次|对话轮数|rounds?|turns?)\s*[:：\-]?\s*(\d{1,2})|(\d{1,2})\s*(?:[\-\s]*(?:turns?|rounds?)))",
+            raw_text,
+            re.IGNORECASE,
+        )
+        if m_digit:
+            val = next((int(g) for g in m_digit.groups() if g is not None), None)
+            if val and 1 <= val <= 30:
+                return val
+
+        # 2. Chinese numeral patterns: "共三轮", "三轮", "五轮", "十轮"
+        for cn_str, num in sorted(cn_to_num.items(), key=lambda x: len(x[0]), reverse=True):
+            if re.search(rf"(?:(?:共|一共|进行)?\s*{cn_str}\s*(?:轮|回合))", raw_text):
+                return num
+
+        return None
+
     def generate_question(
         self,
         topic: str,
@@ -226,6 +269,9 @@ class QuestionGenerator:
                 f"3. 严禁在【提问内容】中生硬出现“Skills tested”或“请完成任务”等八股机器词，提问必须保持 30-65 字极度纯正的生活口语！"
             )
 
+        is_break_character_topic = any(w in core_topic for w in ["打破角色", "退出角色", "不演了", "现实生活中为那个立场", "从角色扮演转到"])
+        transition_round = 3 if total_rounds >= 4 else 2
+
         if is_alternative:
             action_prompt = (
                 f"当前用户正在进行第 {current_round}/{total_rounds} 轮口语提问。\n"
@@ -252,11 +298,31 @@ class QuestionGenerator:
             action_prompt = (
                 f"当前进入第 {current_round}/{total_rounds} 轮递进提问（总对话预期时长/场景: {duration_desc}）。\n"
                 f"前序轮次的问题脉络：\n{history_str}\n\n"
-                f"【递进或转折法则】：请紧扣测评主题并在前序对话基础上深入推进。\n"
-                f"如果测评主题设定在此时进入转折（例如'第 2 轮打破角色，要求从角色扮演转到现实深度讨论'，或'第 2-3 轮转向制定时间表'），"
-                f"请在第 {current_round} 轮极其自然地顺承并引出该转折诉求（例如'好了，先出戏一下。说真的，你刚才在角色里提的那个立场，在现实生活中真能站得住脚吗？'）！\n"
-                f"提出一个简短地道（30-65字口语）的第 {current_round} 轮口头发问，绝不脱离主题，绝不节外生枝。"
             )
+            if is_break_character_topic:
+                if current_round < transition_round:
+                    action_prompt += (
+                        f"【角色扮演来回至少两轮法则】：当前总对话为 {total_rounds} 轮，当前是第 {current_round} 轮。"
+                        f"此时【依然必须保持在角色扮演中（In-Character）】！继续以对手角色的身份进一步追问或交锋，"
+                        f"诱导模型在角色里把那个最实在、最尖锐的立场充分展现出来！绝对不能在第 {current_round} 轮就出戏！\n"
+                    )
+                elif current_round == transition_round:
+                    action_prompt += (
+                        f"【打破角色转折点】：当前是第 {current_round} 轮，前序已完成至少两轮扎实角色扮演。"
+                        f"现在【正式打破角色，从演戏转到现实深度讨论】！"
+                        f"口语发问请地道自然地叫停演戏（例如：'好了，先出戏一下，不演了。说真的，你刚才在角色里提的那个立场挺实在的，如果放到现实生活中，你真能为那个立场拿出站得住脚的论据辩护吗？'）！\n"
+                    )
+                else:
+                    action_prompt += (
+                        f"【现实严肃深度讨论阶段】：前序已打破角色，当前已进入现实层面的严肃辩论。"
+                        f"请针对模型前一轮给出的现实辩护论据，指出其现实漏洞、反例或伦理困境，深入考察其真实立场辩护能力！\n"
+                    )
+            else:
+                action_prompt += (
+                    f"【递进或转折法则】：请紧扣测评主题并在前序对话基础上深入推进。\n"
+                    f"如果测评主题设定在此时进入转折（例如'转向制定时间表'），请在第 {current_round} 轮自然顺承并引出该转折诉求！\n"
+                    f"提出一个简短地道（30-65字口语）的第 {current_round} 轮口头发问，绝不脱离主题，绝不节外生枝。\n"
+                )
             if skills_tested:
                 action_prompt += f"\n特别注意：在第 {current_round} 轮进一步深入考察【{skills_summary}】的更深层维度（如具体事实交叉验证、更深度的风险权衡或实际防护行动）。"
 

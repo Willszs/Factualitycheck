@@ -652,9 +652,9 @@ Skills tested
 
         # 1. System prompt contains roleplay break-character transition rules
         prompt = get_qg_prompt()
-        self.assertIn("角色扮演与“打破角色/退出角色”场景的严格时序推进", prompt)
-        self.assertIn("绝对严禁第1轮直接打破角色", prompt)
-        self.assertIn("ROUND 1 MUST 100% BE IN-CHARACTER", prompt)
+        self.assertIn("角色扮演与“打破角色/退出角色”场景", prompt)
+        self.assertIn("绝对严禁在第 1 轮就说“打破角色", prompt)
+        self.assertIn("必须 100% 入戏", prompt)
 
         # 2. QuestionGenerator round 1 action prompt explicitly forbids breaking character
         qg = QuestionGenerator(self.sample_config)
@@ -662,12 +662,57 @@ Skills tested
             qg.generate_question(
                 topic="在一个角色场景中，角色提出了一个很实在的观点。打破角色，对模型说：'好了，但说真的，在现实生活中为那个立场辩护。'从角色扮演转到深度讨论。",
                 current_round=1,
-                total_rounds=3,
+                total_rounds=5,
                 duration_desc="测试场景",
             )
             called_prompt = mock_call.call_args[0][0]
             self.assertIn("先进入角色扮演的情境", called_prompt)
             self.assertIn("绝对严禁在第 1 轮就说'打破角色'", called_prompt)
+
+        # 3. For long dialogues (e.g. 5 rounds), Round 2 MUST stay in-character, Round 3 breaks character
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(
+                topic="在一个角色场景中，角色提出了一个很实在的观点。打破角色，对模型说：'好了，但说真的，在现实生活中为那个立场辩护。'从角色扮演转到深度讨论。",
+                current_round=2,
+                total_rounds=5,
+                duration_desc="测试场景",
+            )
+            prompt_r2 = mock_call.call_args[0][0]
+            self.assertIn("依然必须保持在角色扮演中", prompt_r2)
+            self.assertIn("绝对不能在第 2 轮就出戏", prompt_r2)
+
+        with patch.object(qg, "_call_gemini", return_value="【提问内容】: 测试\n【测试关注点】: 测试") as mock_call:
+            qg.generate_question(
+                topic="在一个角色场景中，角色提出了一个很实在的观点。打破角色，对模型说：'好了，但说真的，在现实生活中为那个立场辩护。'从角色扮演转到深度讨论。",
+                current_round=3,
+                total_rounds=5,
+                duration_desc="测试场景",
+            )
+            prompt_r3 = mock_call.call_args[0][0]
+            self.assertIn("打破角色转折点", prompt_r3)
+            self.assertIn("正式打破角色，从演戏转到现实深度讨论", prompt_r3)
+
+    def test_parse_explicit_rounds_and_telegram_auto_detection(self):
+        from question_generator import QuestionGenerator
+        from telegram_bot import TelegramBotService
+
+        # 1. Parsing various formats of explicit rounds
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("共3轮：税务问题"), 3)
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("进行5轮测试"), 5)
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("测试10轮问答"), 10)
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("三轮对话"), 3)
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("共五轮"), 5)
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("4 rounds discussion"), 4)
+        self.assertEqual(QuestionGenerator.parse_explicit_rounds("轮数: 6"), 6)
+        self.assertIsNone(QuestionGenerator.parse_explicit_rounds("单纯讨论没有轮数的主题"))
+
+        # 2. TelegramBotService auto-locks explicit rounds when topic contains it
+        bot = TelegramBotService(self.sample_config)
+        with patch.object(bot, "_send_message"), patch.object(bot, "_deliver_question_card"), \
+             patch.object(bot.generator, "generate_question", return_value="【提问内容】: 自动生成\n【测试关注点】: 测试"):
+            bot.start_topic("共4轮：测试角色扮演题目")
+            self.assertEqual(bot.total_rounds, 4)
+            self.assertEqual(bot.state, "INTERACTIVE_QUESTIONS")
 
 
 if __name__ == "__main__":

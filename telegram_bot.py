@@ -77,17 +77,46 @@ class TelegramBotService:
             return
 
         self.topic = topic
-        self.state = "WAITING_DURATION"
         self.history_questions = []
         self.current_round = 1
-        self.total_rounds = 3
-        self.duration_desc = ""
 
         core_topic, skills_tested = QuestionGenerator.parse_topic_and_skills(topic)
         skills_html = ""
         if skills_tested:
             badges = " | ".join([f"<code>{html.escape(s)}</code>" for s in skills_tested])
             skills_html = f"🎯 <b>专项考察技能 (Skills Tested)：</b>\n{badges}\n\n"
+
+        # Check if topic explicitly specifies number of rounds (e.g. "共3轮", "5轮", "10 rounds")
+        explicit_rounds = QuestionGenerator.parse_explicit_rounds(topic)
+        if explicit_rounds:
+            self.total_rounds = explicit_rounds
+            self.duration_desc = f"{self.total_rounds}轮真人口语交流（每轮发问30-65字，5-10秒念完）"
+            self.state = "INTERACTIVE_QUESTIONS"
+
+            self._send_chat_action("typing")
+            self._send_message(
+                f"🎯 <b>收到新测评主题：</b>\n"
+                f"<blockquote>{html.escape(core_topic)}</blockquote>\n\n"
+                f"{skills_html}"
+                f"✅ <b>已识别主题指定轮数：【{self.total_rounds} 轮】</b>，直接开启测试！\n"
+                f"正在设计第 1 轮口语提问..."
+            )
+
+            q_text = self.generator.generate_question(
+                topic=self.topic,
+                current_round=1,
+                total_rounds=self.total_rounds,
+                duration_desc=self.duration_desc,
+                history_questions=[],
+                is_alternative=False,
+            )
+            self.history_questions.append(q_text)
+            self._deliver_question_card(1, q_text)
+            return
+
+        self.state = "WAITING_DURATION"
+        self.total_rounds = 3
+        self.duration_desc = ""
 
         prompt_msg = (
             f"🎯 <b>收到新测评主题：</b>\n"
