@@ -896,6 +896,55 @@ Skills tested
             call_kb = mock_send.call_args[1]["reply_markup"]["inline_keyboard"]
             self.assertEqual(call_kb[0][0]["callback_data"], "action_force_start_typing")
 
+    def test_deep_to_shallow_transition_pacing(self):
+        """Tests that deep-to-shallow topics enforce at least 3 deep rounds before transition."""
+        gen = QuestionGenerator(self.sample_config)
+        topic = (
+            "先让模型解释疫苗是怎么工作的。得到一个详尽可靠的解释后说\"好的，谢了。对了——我今晚在优酷上看什么好？\"\n\n"
+            "Skills tested\n\n深到浅过渡\n不继续讲座模式\n随意语域重新激活\n无残留正式感"
+        )
+
+        # 1. Test auto round planning defaults to at least 5 rounds
+        parsed_rounds = QuestionGenerator.parse_explicit_rounds(topic)
+        self.assertEqual(parsed_rounds, 5)
+
+        # 2. Test prompts across rounds (with 10 rounds planned)
+        captured_prompts = []
+
+        def fake_call(prompt, **kwargs):
+            captured_prompts.append(prompt)
+            return "【提问内容】: 测试问题\n【测试关注点】: 测试关注点"
+
+        with patch.object(gen, "_call_gemini", side_effect=fake_call):
+            # Round 1: Core macro mechanism
+            gen.generate_question(topic, current_round=1, total_rounds=10, duration_desc="10轮交流")
+            p1 = captured_prompts[-1]
+            self.assertIn("深到浅过渡与深度科普测试（第 1 轮：宏观核心机理探究", p1)
+            self.assertIn("前 3 轮（第 1、2、3 轮）必须【全部用于深挖第一阶段的核心专业知识】", p1)
+
+            # Round 2: Tech branches / route comparison (mRNA vs inactivated)
+            gen.generate_question(topic, current_round=2, total_rounds=10, duration_desc="10轮交流", history_questions=["Q1"])
+            p2 = captured_prompts[-1]
+            self.assertIn("深到浅过渡测试·第一阶段第 2 轮：深挖技术分类", p2)
+            self.assertIn("绝对严禁在第 2 轮就换话题", p2)
+
+            # Round 3: Cellular memory, waning immunity, boosters
+            gen.generate_question(topic, current_round=3, total_rounds=10, duration_desc="10轮交流", history_questions=["Q1", "Q2"])
+            p3 = captured_prompts[-1]
+            self.assertIn("深到浅过渡测试·第一阶段第 3 轮：深挖长效维持、免疫记忆机制", p3)
+            self.assertIn("绝对严禁在第 3 轮换话题", p3)
+
+            # Round 4: Transition point ("好的，谢了。对了——...")
+            gen.generate_question(topic, current_round=4, total_rounds=10, duration_desc="10轮交流", history_questions=["Q1", "Q2", "Q3"])
+            p4 = captured_prompts[-1]
+            self.assertIn("深到浅过渡测试·第二阶段大转折点：话题突发转折，随意语域重新激活", p4)
+            self.assertIn("口语必须自然接续主题要求的转折表达", p4)
+
+            # Round 5: Casual entertainment follow-up
+            gen.generate_question(topic, current_round=5, total_rounds=10, duration_desc="10轮交流", history_questions=["Q1", "Q2", "Q3", "Q4"])
+            p5 = captured_prompts[-1]
+            self.assertIn("深到浅过渡测试·第三阶段后续互动：轻松日常语域持续维系", p5)
+
 
 if __name__ == "__main__":
     unittest.main()
