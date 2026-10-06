@@ -14,6 +14,7 @@ import datetime
 
 from search_grounding import SearchGrounding
 from dialogue_auditor import DialogueAuditor
+from atomic_verifier import AtomicClaimVerifier
 
 try:
     import requests
@@ -203,6 +204,7 @@ class FactualityEvaluator:
             or os.environ.get("GEMINI_API_KEY", "")
         ).strip()
         self.primary_model = config.get("gemini_model", "gemini-3.6-flash").strip()
+        self.atomic_verifier = AtomicClaimVerifier(self.api_key, primary_model=self.primary_model)
 
     def evaluate(self, transcript_a: str, transcript_b: str) -> Optional[str]:
         """
@@ -224,9 +226,14 @@ class FactualityEvaluator:
         pre_audit_context = DialogueAuditor.generate_pre_audit_report(transcript_a, transcript_b)
         pre_audit_section = f"{pre_audit_context}\n\n" if pre_audit_context else ""
 
+        # Atomic adversarial verification (Two-stage fine-grained fact & technical checking)
+        atomic_context = self.atomic_verifier.verify(transcript_a, transcript_b)
+        atomic_section = f"{atomic_context}\n\n" if atomic_context else ""
+
         user_content = (
             f"{grounding_section}"
             f"{pre_audit_section}"
+            f"{atomic_section}"
             f"=== MODEL A DIALOGUE TRANSCRIPT ===\n{transcript_a.strip()}\n\n"
             f"=== MODEL B DIALOGUE TRANSCRIPT ===\n{transcript_b.strip()}\n"
         )
@@ -448,14 +455,14 @@ class FactualityEvaluator:
         """Backwards-compatibility alias for clean_evaluation_report."""
         return cls.clean_evaluation_report(text)
 
-    def _call_model(self, model_name: str, user_content: str) -> tuple[Optional[str], str]:
+    def _call_model(self, model_name: str, user_content: str, system_prompt: Optional[str] = None) -> tuple[Optional[str], str]:
+        prompt = system_prompt or get_system_prompt()
         # 1. Try google-genai SDK first
         try:
             from google import genai
             from google.genai import types
 
             client = genai.Client(api_key=self.api_key)
-            prompt = get_system_prompt()
             response = client.models.generate_content(
                 model=model_name,
                 contents=user_content,
@@ -478,14 +485,13 @@ class FactualityEvaluator:
             logger.warning(f"google-genai SDK call for {model_name} failed ({err_str[:100]}), trying REST API...")
 
         # 2. Try REST API via requests (with proxy & SSL tolerance)
-        return self._evaluate_via_rest(model_name, user_content)
+        return self._evaluate_via_rest(model_name, user_content, prompt)
 
-    def _evaluate_via_rest(self, model_name: str, user_content: str) -> tuple[Optional[str], str]:
+    def _evaluate_via_rest(self, model_name: str, user_content: str, prompt: str) -> tuple[Optional[str], str]:
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
             f"{model_name}:generateContent?key={self.api_key}"
         )
-        prompt = get_system_prompt()
         payload = {
             "system_instruction": {
                 "parts": [{"text": prompt}]

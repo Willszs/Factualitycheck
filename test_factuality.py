@@ -604,6 +604,45 @@ Skills tested
         self.assertIn("DECR / DECRBY", eval_prompt)
         self.assertIn("NX 和 GT", eval_prompt)
 
+    def test_atomic_claim_verifier(self):
+        from atomic_verifier import AtomicClaimVerifier
+
+        # 1. Empty or missing key returns empty string safely
+        verifier_no_key = AtomicClaimVerifier("")
+        self.assertEqual(verifier_no_key.verify("Turn 1: a", "Turn 1: b"), "")
+
+        # 2. Verifier mock detects and formats errors
+        verifier = AtomicClaimVerifier("test_key")
+        mock_evidence = (
+            "=== ADVERSARIAL ATOMIC VERIFICATION EVIDENCE ===\n"
+            "• Model B (Turn 8):\n"
+            "  - Claim: '把库存计数放在 Redis 里用原子 incr，扣完再异步落库'\n"
+            "  - Verdict: OPERATIONAL INVERSION\n"
+            "  - Ground Truth: In Redis, INCR is increment; inventory deduction requires DECR/DECRBY."
+        )
+        with patch.object(verifier, "_call_model", return_value=mock_evidence):
+            res = verifier.verify("Turn 1: ok", "Turn 8: incr")
+            self.assertIn("=== ADVERSARIAL ATOMIC VERIFICATION EVIDENCE ===", res)
+            self.assertIn("Model B (Turn 8)", res)
+            self.assertIn("OPERATIONAL INVERSION", res)
+
+        # 3. Verifier returns empty string when clean / NO_ERRORS_FOUND
+        with patch.object(verifier, "_call_model", return_value="NO_ERRORS_FOUND"):
+            res_clean = verifier.verify("Turn 1: ok", "Turn 1: ok")
+            self.assertEqual(res_clean, "")
+
+        # 4. Verifier integrated into FactualityEvaluator user_content
+        evaluator = FactualityEvaluator(self.sample_config)
+        with patch.object(evaluator.atomic_verifier, "verify", return_value=mock_evidence), \
+             patch.object(evaluator, "_call_model", return_value=("For conversational dynamics I prefer Model A. Clean.\n\nFor utility I prefer Model A. Accurate.", "")) as mock_call:
+            eval_res = evaluator.evaluate("Turn 1: a", "Turn 1: b")
+            self.assertIn("For conversational dynamics I prefer Model A.", eval_res)
+            # Verify that mock_evidence was injected into the prompt content passed to _call_model
+            args, _ = mock_call.call_args
+            called_user_content = args[1]
+            self.assertIn("=== ADVERSARIAL ATOMIC VERIFICATION EVIDENCE ===", called_user_content)
+            self.assertIn("OPERATIONAL INVERSION", called_user_content)
+
 
 if __name__ == "__main__":
     unittest.main()
