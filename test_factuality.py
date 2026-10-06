@@ -50,7 +50,7 @@ class TestFactualityComponents(unittest.TestCase):
         sample_raw = (
             "### Conversational Dynamics\n"
             "For conversational dynamics I prefer Model A.\n"
-            "* Model B opened Turn 2 with artificial search intro.\n\n"
+            "* Model B opened Turn 2 with artificial search intro, exceeding the allowable search filler limit of 2.\n\n"
             "### Utility\n"
             "For utility I prefer Model A.\n"
             "* Model B in Turn 6 misstated voting thresholds. Ground Truth: simple majority."
@@ -61,6 +61,8 @@ class TestFactualityComponents(unittest.TestCase):
         self.assertTrue(paragraphs[0].startswith("For conversational dynamics I prefer Model A."))
         self.assertTrue(paragraphs[1].startswith("For utility I prefer Model A."))
         self.assertNotIn("###", cleaned)
+        self.assertNotIn("search filler limit", cleaned)
+        self.assertNotIn("exceeding", cleaned)
         self.assertIn("Ground Truth: simple majority.", paragraphs[1])
 
     def test_clean_evaluation_report_word_limit(self):
@@ -301,7 +303,8 @@ class TestFactualityComponents(unittest.TestCase):
             "第 3 轮\n后天阴天。"
         )
         audit_short_2 = DialogueAuditor.audit_transcript(short_two_fillers, "Model Test")
-        self.assertTrue(any("exceeding the allowable threshold" in v for v in audit_short_2["violations"]))
+        self.assertTrue(any("repeatedly leaned on search-simulation delay fillers" in v for v in audit_short_2["violations"]))
+        self.assertFalse(any("threshold" in v.lower() or "limit" in v.lower() for v in audit_short_2["violations"]))
 
         # 3. Long dialogue (6 turns >= 5): 2 search fillers is ACCEPTABLE (no violation)
         long_two_fillers = (
@@ -325,7 +328,8 @@ class TestFactualityComponents(unittest.TestCase):
             "第 6 轮\n杭州22度。"
         )
         audit_long_3 = DialogueAuditor.audit_transcript(long_three_fillers, "Model Test")
-        self.assertTrue(any("exceeding the allowable threshold" in v for v in audit_long_3["violations"]))
+        self.assertTrue(any("repeatedly leaned on search-simulation delay fillers" in v for v in audit_long_3["violations"]))
+        self.assertFalse(any("threshold" in v.lower() or "limit" in v.lower() for v in audit_long_3["violations"]))
 
     def test_search_grounding_earthquake_support(self):
         from search_grounding import SearchGrounding

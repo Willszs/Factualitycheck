@@ -175,8 +175,10 @@ For utility I prefer neither model. Both models made huge mistakes on basic fact
 
 STRICT FORMAT & LENGTH RULES:
 - Output MUST be 100% in English.
-- Always refer to dialogue turns strictly as "Turn 1", "Turn 2", "Turn 3", etc. NEVER use "Round 1", "Round 2".
-- STRICT PROHIBITION ON MENTIONING INTERNAL TERMS: NEVER mention internal terms like 'pre-audit', 'static code scan', 'auditor evidence', or 'code check' in your review. The user reading your report does not know what pre-audit is. Speak purely as an expert human judge evaluating Model A and Model B directly.
+- STRICT PROHIBITION ON MENTIONING INTERNAL TERMS & BACKEND THRESHOLDS:
+  * NEVER mention internal terms like 'pre-audit', 'static code scan', 'auditor evidence', or 'code check' in your review. The user reading your report does not know what pre-audit is. Speak purely as an expert human judge evaluating Model A and Model B directly.
+  * ABSOLUTE PROHIBITION: NEVER write backend threshold or quota phrases like "exceeded search filler limit", "exceeded the allowable filler threshold", "exceeded quota of 2 fillers", "exceeding filler limit", or "threshold" in your user-facing review! Those thresholds are strictly internal backend criteria for deciding when to penalize.
+  * In your user-facing review, speak naturally like a human critic: e.g. "Model B repeatedly stalled with fake search phrases like '好的，我去查一下...' across Turns 2, 4, 6, and 8, which ruined the flow of conversation."
 - EXACTLY TWO PARAGRAPHS separated by EXACTLY ONE BLANK LINE.
 - Each paragraph MUST start with the required sentence:
   Paragraph 1: "For conversational dynamics I prefer [Model A / Model B / neither model]. [Reasons...]"
@@ -342,6 +344,10 @@ class FactualityEvaluator:
 
         # Strip accidental references to internal system pre-audit
         text = re.sub(r"(?:The\s+)?pre-audit\s+[^.!?]*[.!?]\s*", "", text, flags=re.IGNORECASE)
+
+        # Strip accidental references to internal filler thresholds / limits
+        text = re.sub(r",?\s*(?:which\s+)?(?:greatly\s+)?exceeded\s+(?:the\s+)?(?:allowable\s+)?(?:search\s+)?(?:filler\s+)?(?:limit|threshold|quota)[^.,!?]*([.,!?])", r"\1", text, flags=re.IGNORECASE)
+        text = re.sub(r",?\s*(?:greatly\s+)?exceeding\s+(?:the\s+)?(?:allowable\s+)?(?:search\s+)?(?:filler\s+)?(?:limit|threshold|quota)[^.,!?]*([.,!?])", r"\1", text, flags=re.IGNORECASE)
 
         # Look for the split between conversational dynamics and utility
         match = re.search(r"(For\s+utility\s+I\s+prefer.*)", text, flags=re.IGNORECASE | re.DOTALL)

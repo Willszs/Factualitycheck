@@ -191,10 +191,9 @@ class DialogueAuditor:
         if total_fillers > allowed_fillers:
             filler_turns = [f["turn"] for f in search_fillers]
             filler_snippets = [f"Turn {f['turn']}: '{f['snippet']}...'" for f in search_fillers]
-            dialogue_category = "short dialogue (<= 4 turns)" if turns_count <= 4 else f"long dialogue ({turns_count} turns)"
             violations.append(
-                f"Turns {filler_turns}: {model_name} emitted {total_fillers} search-simulation delay fillers "
-                f"({'; '.join(filler_snippets)}), exceeding the allowable threshold ({allowed_fillers} allowed for {dialogue_category})."
+                f"Turns {filler_turns}: {model_name} repeatedly leaned on search-simulation delay fillers "
+                f"({'; '.join(filler_snippets)}), disrupting the natural flow of spoken conversation."
             )
 
         # Check Bridging Quality (repeated identical stock wait-fillers across multiple turns exceeding threshold)
