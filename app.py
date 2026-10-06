@@ -17,6 +17,13 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from typing import Optional
 
+import warnings
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except ImportError:
+    pass
+
 from evaluator import FactualityEvaluator
 from notifier import Notifier
 from telegram_bot import TelegramBotService
