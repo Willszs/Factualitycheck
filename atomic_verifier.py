@@ -170,3 +170,4 @@ class AtomicClaimVerifier:
             except Exception:
                 pass
         return None
+
