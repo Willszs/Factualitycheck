@@ -334,7 +334,17 @@ class FactualityEvaluator:
                     # Non-transient error, move immediately to next model
                     break
 
-        return f"⚠️ Evaluation Notice: Google Gemini servers are temporarily congested (503). Last message: {last_error}"
+        if "402" in last_error or "prepayment credits are depleted" in last_error.lower():
+            return (
+                "⚠️ 评测失败提示：Gemini API 预付费额度已耗尽 (HTTP 402 - Prepayment credits depleted)。\n"
+                "请前往 Google AI Studio (https://aistudio.google.com/) 充值额度或更换新的 Gemini API Key。"
+            )
+        elif "429" in last_error or "resource_exhausted" in last_error.lower():
+            return (
+                f"⚠️ 评测失败提示：Gemini API 请求配额超限 (429 Rate Limit / Quota Exceeded)。\n"
+                f"详细信息: {last_error}"
+            )
+        return f"⚠️ 评测失败提示：Google Gemini 服务暂时不可用或网络异常。最后报错信息: {last_error}"
 
     def condense_report(self, text: str, max_chars: int = 800) -> str:
         """
