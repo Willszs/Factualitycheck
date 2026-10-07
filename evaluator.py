@@ -549,7 +549,6 @@ class FactualityEvaluator:
                 contents=user_content,
                 config=types.GenerateContentConfig(
                     system_instruction=prompt,
-                    temperature=0.1,
                     max_output_tokens=16384,
                     tools=[types.Tool(google_search=types.GoogleSearch())],
                 ),
@@ -588,7 +587,6 @@ class FactualityEvaluator:
                 }
             ],
             "generationConfig": {
-                "temperature": 0.1,
                 "maxOutputTokens": 16384
             }
         }

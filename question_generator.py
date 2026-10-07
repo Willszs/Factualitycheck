@@ -689,7 +689,6 @@ class QuestionGenerator:
                         contents=user_content,
                         config=types.GenerateContentConfig(
                             system_instruction=system_prompt,
-                            temperature=0.7,
                             tools=[types.Tool(google_search=types.GoogleSearch())],
                         ),
                     )
@@ -713,7 +712,6 @@ class QuestionGenerator:
                         "system_instruction": {"parts": [{"text": system_prompt}]},
                         "contents": [{"parts": [{"text": user_content}]}],
                         "tools": [{"google_search": {}}],
-                        "generationConfig": {"temperature": 0.7},
                     }
                     for verify in [True, False]:
                         try:

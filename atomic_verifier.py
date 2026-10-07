@@ -129,7 +129,6 @@ class AtomicClaimVerifier:
                 contents=user_content,
                 config=types.GenerateContentConfig(
                     system_instruction=prompt,
-                    temperature=0.0,
                     max_output_tokens=4096,
                     tools=[types.Tool(google_search=types.GoogleSearch())],
                 ),
@@ -162,7 +161,6 @@ class AtomicClaimVerifier:
             ],
             "tools": [{"google_search": {}}],
             "generationConfig": {
-                "temperature": 0.0,
                 "maxOutputTokens": 4096
             }
         }
