@@ -273,8 +273,20 @@ class QuestionGenerator:
                 if val and 1 <= val <= 30:
                     return val
 
-        # 2. Chinese numeral patterns: "共三轮", "三轮对话", "五轮"
+        # 2. Chinese numeral patterns: "共三轮", "三轮对话", "五轮" (must NOT match introductory phrases like "先来一轮XX。几个回合后")
+        # Multi-turn progressive transition prompts: e.g. "先来一轮...几个回合后说..." -> requires at least 4-5 rounds!
+        if re.search(r"(?:几个回合后|几轮之后|几个回合之后|几轮后)", raw_text):
+            # Clearly a multi-round progression topic! Default to at least 5 rounds (2 joke rounds + 1 turn + 2 deep rounds)
+            return 5
+
         for cn_str, num in sorted(cn_to_num.items(), key=lambda x: len(x[0]), reverse=True):
+            # "一轮" or "一回合" in conversational prompts almost always means "先来一轮游戏/试探" rather than a 1-round total benchmark!
+            if cn_str in ["一", "一个"]:
+                # Only match "共一轮" or "总共一轮"
+                if re.search(r"(?:共|一共|总共)\s*一\s*(?:轮|回合)", raw_text):
+                    return 1
+                continue
+
             if re.search(rf"(?:(?:共|一共|总共|进行|测试)?\s*{cn_str}\s*(?:轮|回合)(?:对话|测试)?)", raw_text):
                 # Ensure not part of "第X轮" or "前X轮"
                 if not re.search(rf"(?:第|前)\s*{cn_str}\s*(?:轮|回合)", raw_text):
