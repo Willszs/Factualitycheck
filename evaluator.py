@@ -218,7 +218,10 @@ STRICT FORMAT & LENGTH RULES:
 {budget_block}
   * ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):
     - When ONE model wins: For the WINNING model, summarize why it won in ONLY 1 concise sentence with 1-2 brief examples. Dedicate 75-80% of the paragraph to the LOSING model citing Turn [X], quoting mistakes, and giving Ground Truth facts.
-    - When NEITHER model is preferred ("prefer neither model"): Both models failed! You MUST dedicate balanced, thorough critique to BOTH Model A and Model B (约各占 50% 篇幅). You MUST explicitly cite Model A's specific mistakes AND Model B's specific mistakes (including truncated answers or fabricated stats) with their respective Turn numbers! NEVER leave one model completely uncriticized when choosing 'prefer neither model'!
+    - When NEITHER model is preferred ("prefer neither model"): Both models failed! You MUST dedicate balanced, thorough critique to BOTH Model A and Model B (约各占 50% 篇幅).
+      * CRITICAL REQUIREMENT FOR FALSE / FABRICATED CLAIMS: Do NOT vaguely write 'fabricating fake news' or 'making up information'! You MUST explicitly quote the EXACT false claim in quotation marks (e.g., claiming '电梯更新项目涉及四十台' or '一户暖气管道漏水的报道'), cite the exact Turn number, and explicitly state WHY it is false (e.g. no such project or tender exists in official records)!
+      * CRITICAL REQUIREMENT FOR TRUNCATION: You MUST explicitly quote the broken ending (e.g. cutting off at '一个是入住后所有维修漏水都由你承担') and state that it left the advice unfinished.
+      * NEVER leave one model completely uncriticized when choosing 'prefer neither model'!
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -446,9 +449,9 @@ class FactualityEvaluator:
         p1 = re.sub(r"[\r\n]+", " ", p1)
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
-        # Word limits scale according to max_chars
-        p1_words = 90 if max_chars >= 1000 else 70
-        p2_words = 110 if max_chars >= 1000 else 80
+        # Word limits scale according to max_chars (allow up to 140 words for Paragraph 2 when critiquing both models)
+        p1_words = 95 if max_chars >= 1000 else 70
+        p2_words = 140 if max_chars >= 1000 else 90
 
         # Truncate each paragraph to strictly under word budget if necessary
         p1 = cls._truncate_to_word_limit(p1, max_words=p1_words)
