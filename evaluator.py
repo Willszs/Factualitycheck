@@ -217,8 +217,8 @@ STRICT FORMAT & LENGTH RULES:
   * Only penalize genuine factual distortions (e.g. claiming an anti-war defense film is a lighthearted comedy), and NEVER falsely claim real productions are non-existent or unreleased.
 {budget_block}
   * ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):
-    - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples (好的模型举出一到两个示例带过即可). Absolutely DO NOT write long, redundant compliments!
-    - For the LOSING / FLAWED model: Dedicate 75-80% of the paragraph directly to where it failed (重点放在不好的模型哪里不好). Explicitly cite the exact Turn [X], quote its filler or factual mistake, and state the verified Ground Truth fact directly.
+    - When ONE model wins: For the WINNING model, summarize why it won in ONLY 1 concise sentence with 1-2 brief examples. Dedicate 75-80% of the paragraph to the LOSING model citing Turn [X], quoting mistakes, and giving Ground Truth facts.
+    - When NEITHER model is preferred ("prefer neither model"): Both models failed! You MUST dedicate balanced, thorough critique to BOTH Model A and Model B (约各占 50% 篇幅). You MUST explicitly cite Model A's specific mistakes AND Model B's specific mistakes (including truncated answers or fabricated stats) with their respective Turn numbers! NEVER leave one model completely uncriticized when choosing 'prefer neither model'!
 """
 
 SYSTEM_PROMPT = get_system_prompt()
