@@ -167,8 +167,8 @@ class DialogueAuditor:
                     f"Claiming to deduct inventory with INCR is an inverted technical error. You MUST cite Turn {num} and penalize under Utility!"
                 )
 
-            # 8c. Truncation / Broken Sentence at end of turn (Incomplete thought)
-            # Detects when a turn ends abruptly without terminal punctuation (e.g. ending in 承担, 则是, 包括, 或)
+            # 8c. Truncation / Broken Sentence at end of turn (Universal Completeness Check)
+            # Detects when a turn ends abruptly without terminal punctuation across any domain
             stripped_content = content.strip()
             if stripped_content and num == turns[-1][0]:
                 if not re.search(r'[\.\!\?。！？…]["\'”’]?$', stripped_content) and len(stripped_content) > 50:
@@ -179,24 +179,23 @@ class DialogueAuditor:
                         f"You MUST cite Turn {num} and penalize under Utility!"
                     )
 
-            # 8d. Tenancy Deposit and Municipal Statutory Timelines
-            m_deposit_7d = re.search(r'(?:[七7]\s*(?:天|个工作日)|一个星期)(?:内)?(?:退还?押金|退押金)', content)
-            if m_deposit_7d:
-                technical_errors.append(
-                    f"Turn {num}: {model_name} advised tenant that deposit should be refunded within 7 days/1 week ('{m_deposit_7d.group(0)}'). "
-                    f"CRITICAL MUNICIPAL STATUTORY ERROR: Under the official 《北京市住房租赁押金托管和租金监管暂行办法》 (effective October 1, 2024), "
-                    f"housing rental enterprises MUST propose deposit/rent refund opinions within 3 BUSINESS DAYS (3个工作日内), NOT 7 days! "
-                    f"Advising 7 days is legally inaccurate and compromises tenant rights under Beijing municipal regulations. You MUST cite Turn {num} and penalize under Utility!"
+            # 8d. Statutory Days / Time Limits Verification Directive
+            # Catches explicit legal/regulatory timeframes (e.g. "X天内退款/退押金/提出异议/通知") to mandate verification
+            m_stat_time = re.search(r'(?:[一二两三四五六七八九十\d]+(?:个工作日|天|日|个月)|一个星期)(?:内)?(?:退还?押金|退押金|退款|告知|通知|提出意见|履行)', content)
+            if m_stat_time:
+                temporal_claims.append(
+                    f"Turn {num}: {model_name} cited a specific statutory/regulatory timeframe: '{m_stat_time.group(0)}'. "
+                    f"CRITICAL REGULATORY AUDIT: Check against official local regulations. "
+                    f"If the statute dictates a different statutory timeline (e.g. 3 business days vs 7 days), penalize as a severe regulatory/factual error!"
                 )
 
-            # 8e. High-rise tower elevator retrofitting hallucination
-            m_retro_ele = re.search(r'(?:望京西园|塔楼).*?(?:加装电梯|排进加装电梯)', content)
-            if m_retro_ele:
-                technical_errors.append(
-                    f"Turn {num}: {model_name} advised checking '加装电梯计划' for high-rise towers in Wangjing Xiyuan ('{m_retro_ele.group(0)}'). "
-                    f"CRITICAL ARCHITECTURAL HALLUCINATION: Wangjing Xiyuan towers are 18-22 floor high-rise buildings with existing elevators. "
-                    f"They undergo '老旧电梯更新改造' (replacement/modernization), NEVER '老楼加装电梯' (which only applies to 6-floor walkups)! "
-                    f"You MUST cite Turn {num} and penalize under Utility!"
+            # 8e. Hyper-specific Project Numbers / Quantities / Dates (Pseudoprecision Audit)
+            m_pseudo = re.findall(r'(\d{4}年\d{1,2}月).*?(\d+台|\d+套|\d+万|\d+户|重新划|电梯更新|改造名单)', content)
+            for p_date, p_item in m_pseudo:
+                temporal_claims.append(
+                    f"Turn {num}: {model_name} made a hyper-specific micro-claim: '{p_date}' concerning '{p_item}'. "
+                    f"PSEUDOPRECISION SKEPTICISM AUDIT: Use search tools to verify if this specific project, quantity, or announcement genuinely exists. "
+                    f"If this specific project or count was fabricated to sound authoritative, penalize as an objective factual hallucination!"
                 )
 
         # Check Search Filler Tolerance Thresholds (短对话允许1个，长对话允许2个，超过才记录违规)
