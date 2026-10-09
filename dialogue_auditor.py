@@ -167,18 +167,36 @@ class DialogueAuditor:
                     f"Claiming to deduct inventory with INCR is an inverted technical error. You MUST cite Turn {num} and penalize under Utility!"
                 )
 
-            # 8b. Fabricated Redis string SET options (NX and GT)
-            m_redis_gt = re.search(
-                r"(?:NX\s*和\s*GT|GT\s*和\s*NX|SET.*?GT|用\s*GT\s*条件|GT\s*条件做二次校验)",
-                content,
-                re.IGNORECASE,
-            )
-            if m_redis_gt:
+            # 8c. Truncation / Broken Sentence at end of turn (Incomplete thought)
+            # Detects when a turn ends abruptly without terminal punctuation (e.g. ending in 承担, 则是, 包括, 或)
+            stripped_content = content.strip()
+            if stripped_content and num == turns[-1][0]:
+                if not re.search(r'[\.\!\?。！？…]["\'”’]?$', stripped_content) and len(stripped_content) > 50:
+                    last_words = stripped_content[-25:]
+                    technical_errors.append(
+                        f"Turn {num}: {model_name} ended abruptly with an incomplete, truncated sentence ('...{last_words}'). "
+                        f"CRITICAL UTILITY & COMPLETENESS FAILURE: The model cut off mid-thought without finishing its crucial advice or clauses! "
+                        f"You MUST cite Turn {num} and penalize under Utility!"
+                    )
+
+            # 8d. Tenancy Deposit and Municipal Statutory Timelines
+            m_deposit_7d = re.search(r'(?:[七7]\s*(?:天|个工作日)|一个星期)(?:内)?(?:退还?押金|退押金)', content)
+            if m_deposit_7d:
                 technical_errors.append(
-                    f"Turn {num}: {model_name} claimed to write Redis strings using 'NX 和 GT 条件' ('{m_redis_gt.group(0)}'). "
-                    f"CRITICAL API SYNTAX HALLUCINATION: Redis string SET commands support [NX|XX] and TTL options, but DO NOT support 'GT' (Greater Than)! "
-                    f"GT only exists in Redis 7.0+ EXPIRE or ZADD. Version comparison for string keys requires Lua scripts. "
-                    f"Fabricating 'NX 和 GT' for string writes is an objective API hallucination. You MUST cite Turn {num} and penalize under Utility!"
+                    f"Turn {num}: {model_name} advised tenant that deposit should be refunded within 7 days/1 week ('{m_deposit_7d.group(0)}'). "
+                    f"CRITICAL MUNICIPAL STATUTORY ERROR: Under the official 《北京市住房租赁押金托管和租金监管暂行办法》 (effective October 1, 2024), "
+                    f"housing rental enterprises MUST propose deposit/rent refund opinions within 3 BUSINESS DAYS (3个工作日内), NOT 7 days! "
+                    f"Advising 7 days is legally inaccurate and compromises tenant rights under Beijing municipal regulations. You MUST cite Turn {num} and penalize under Utility!"
+                )
+
+            # 8e. High-rise tower elevator retrofitting hallucination
+            m_retro_ele = re.search(r'(?:望京西园|塔楼).*?(?:加装电梯|排进加装电梯)', content)
+            if m_retro_ele:
+                technical_errors.append(
+                    f"Turn {num}: {model_name} advised checking '加装电梯计划' for high-rise towers in Wangjing Xiyuan ('{m_retro_ele.group(0)}'). "
+                    f"CRITICAL ARCHITECTURAL HALLUCINATION: Wangjing Xiyuan towers are 18-22 floor high-rise buildings with existing elevators. "
+                    f"They undergo '老旧电梯更新改造' (replacement/modernization), NEVER '老楼加装电梯' (which only applies to 6-floor walkups)! "
+                    f"You MUST cite Turn {num} and penalize under Utility!"
                 )
 
         # Check Search Filler Tolerance Thresholds (短对话允许1个，长对话允许2个，超过才记录违规)
