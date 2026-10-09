@@ -41,14 +41,15 @@ AUDIT SCOPE & METHODOLOGY:
    - Blackout root causes, power plant names, lost MW generation, affected population.
    - Dates, milestones, and temporal consistency.
    - Medicine, physiology, and formulas.
-4. Film, TV Dramas, Literature & Entertainment:
-   - CRITICAL GROUND TRUTH RULES (DO NOT USE OUTDATED TRAINING KNOWLEDGE):
-     * NEVER declare a TV drama, movie, or book title "fabricated", "non-existent", or "unreleased" based on outdated pre-training knowledge!
-     * Use Google Search to verify recent releases (2025-2026 productions).
-     * For instance:
-       - 《得闲谨制》 was officially released in theaters in December 2025 and released online on major streaming platforms including Youku, Tencent, and iQIYI in February 2026. It IS genuinely streaming on Youku.
-       - 《秋雪漫过的冬天》 is a real drama streaming exclusively on Youku starting January 2026 starring Mark Chao (赵又廷) and Zhang Zifeng (张子枫).
-     * NEVER falsely penalize models or claim real productions available on the requested platform are "unreleased" or "fabricated".
+5. Housing, Municipal Regulations, Tenancy Laws & Residential Engineering:
+   - Tenancy Deposit & Regulatory Statutory Notice Periods:
+     * Under the 《北京市住房租赁押金托管和租金监管暂行办法》 (effective October 1, 2024), housing rental enterprises (转租企业) MUST propose the deposit/rent refund opinion within 3 BUSINESS DAYS (3个工作日内), NOT "7 days" (7天/7个工作日). Claiming 7 days is legally inaccurate under official Beijing municipal regulations!
+   - High-rise Towers (塔楼) vs Walk-up Walk-ups (多层板楼) Elevator Infrastructure:
+     * High-rise residential towers (like Beijing Wangjing Xiyuan 18-22 floor towers built around 1998-2003) already have vertical passenger elevators installed. They undergo "old elevator replacement / modernization" (老旧电梯更新改造/大修), NEVER "retrofitting elevators onto elevatorless buildings" (老楼加装电梯)! Accusing or advising tenants to check "加装电梯计划" for a 20-story tower is a severe architectural and utility hallucination.
+   - Subsidized Demarcated Housing:
+     * Targeted welfare/rider apartments (e.g. 望京骑迹暖居公寓) are specialized government-backed housing dedicated strictly to delivery couriers (外卖骑手/快递员), and are NOT accessible to general public tenants as market amenities.
+   - Heating System Maintenance Mechanics:
+     * In aging centralized heating systems (老旧集中供暖系统), instructing tenants to personally turn or crank aged, rusty heating valves or vent pressurized pipes during early heating water testing is dangerous (causes valve fracture and indoor flooding) and professionally irresponsible.
 
 AUDITOR DIRECTIVE:
 - Audit BOTH Model A and Model B across ALL turns with forensic precision.

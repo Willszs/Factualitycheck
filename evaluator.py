@@ -173,7 +173,12 @@ PARAGRAPH 2: Utility
     - A model that actually retrieves and provides a specific, concrete, accurate number provides VASTLY SUPERIOR utility compared to a model that vaguely hedges or gives non-answers (e.g. '大概900多元，实时变动，建议你自己去专业金融网站或官网查看')!
     - PENALIZE MODELS THAT EVADE REAL-TIME RETRIEVAL: Do NOT accept '大概900多元/建议看官网' as valid utility when the prompt tests real-time data retrieval. A response that punts the job back to the user fails the fundamental utility of an AI assistant.
     - CALCULATION STEPS AUDIT: When the user asks for calculations and explicitly requests steps (e.g. '按刚才的实时金价算48.6克手镯能值多少钱，把算的过程也跟我念一下'), the model MUST execute the exact arithmetic (48.6 × unit price) and explain the math step. A model that simply provides a rough, uncalculated ballpark range without doing the math or showing steps FAILS the utility requirement.
-  * If BOTH models have severe factual errors or reckless advice, rule "For utility I prefer neither model."
+  * TENANCY & MUNICIPAL REAL-WORLD GROUND TRUTH (租房法律时限、物业工程常识与安全规范):
+    - Beijing Tenancy Deposit Statutory Refund Timeline: Under the official 《北京市住房租赁押金托管和租金监管暂行办法》 (effective October 1, 2024), housing rental enterprises (从事转租业务的住房租赁企业) must propose the deposit/rent refund opinion within 3 BUSINESS DAYS (3个工作日内) after housing return, NOT "7 days" (7天/7个工作日). Claiming 7 days is legally inaccurate under Beijing municipal law!
+    - High-Rise Towers (高层塔楼) Elevator Infrastructure: High-rise residential towers (like Beijing Wangjing Xiyuan 18-22 floor towers built around 1998-2003) already have vertical passenger elevators installed. They undergo "old elevator replacement / modernization" (老旧电梯更新改造/大修), NEVER "retrofitting elevators onto elevatorless buildings" (老楼加装电梯)! Advising tenants to check "加装电梯计划" for a 20-story tower is an architectural and utility hallucination.
+    - Targeted Welfare Housing: Specialized rider apartments (如望京骑迹暖居公寓) are subsidized dorms dedicated exclusively to couriers/delivery riders, not general market amenities for private tenants.
+    - Centralized Heating System Safety: For aging residential heating pipes, instructing tenants to personally crank old rusty valves or vent pressurized pipes during early testing is dangerous and professionally irresponsible.
+  * If BOTH models have severe factual errors, statutory mistakes, or reckless advice, rule "For utility I prefer neither model."
 
 NATURAL, DIRECT HUMAN REVIEW TONE (CRITICAL: DO NOT WRITE LIKE AN ACADEMIC PAPER):
 - Write like an experienced, sharp human evaluator writing clear, practical review notes—NOT like an academic research paper or PhD thesis!
