@@ -30,11 +30,11 @@ logger = logging.getLogger("factuality.evaluator")
 def get_system_prompt(is_long_dialogue: bool = False) -> str:
     now_str = datetime.datetime.now().strftime("%Y-%m-%d")
     limit_num = 1000 if is_long_dialogue else 800
-    aim_range = "~750–980" if is_long_dialogue else "~600–780"
-    p1_words = "~55–70 words, strictly under 480 characters" if is_long_dialogue else "~45–55 words, strictly under 400 characters"
-    p1_aim = "~350–450 characters" if is_long_dialogue else "~280–360 characters"
-    p2_words = "~65–85 words, strictly under 520 characters" if is_long_dialogue else "~50–65 words, strictly under 440 characters"
-    p2_aim = "~400–530 characters" if is_long_dialogue else "~320–420 characters"
+    aim_range = "~780–980" if is_long_dialogue else "~620–780"
+    p1_words = "~45–60 words, strictly under 420 characters" if is_long_dialogue else "~35–48 words, strictly under 340 characters"
+    p1_aim = "~300–400 characters" if is_long_dialogue else "~240–320 characters"
+    p2_words = "~75–100 words, strictly under 580 characters" if is_long_dialogue else "~55–75 words, strictly under 460 characters"
+    p2_aim = "~480–580 characters" if is_long_dialogue else "~380–460 characters"
     if is_long_dialogue:
         budget_block = (
             f"- EXTENDED CHARACTER BUDGET FOR LONG DIALOGUES (STRICTLY UNDER {limit_num} CHARACTERS TOTAL):\n"
@@ -45,9 +45,9 @@ def get_system_prompt(is_long_dialogue: bool = False) -> str:
     else:
         budget_block = (
             "- STRICT CHARACTER BUDGET CONSTRAINTS (STRICTLY UNDER 800 CHARACTERS TOTAL):\n"
-            "  * TOTAL COMBINED REPORT LENGTH MUST BE STRICTLY UNDER 800 CHARACTERS (aim for ~600–780 characters total).\n"
-            "  * Paragraph 1 (Conversational Dynamics): aim for ~280–360 characters (~45–55 words, strictly under 400 characters).\n"
-            "  * Paragraph 2 (Utility): aim for ~320–420 characters (~50–65 words, strictly under 440 characters)."
+            "  * TOTAL COMBINED REPORT LENGTH MUST BE STRICTLY UNDER 800 CHARACTERS (aim for ~620–780 characters total).\n"
+            "  * Paragraph 1 (Conversational Dynamics): aim for ~240–320 characters (~35–48 words, strictly under 340 characters).\n"
+            "  * Paragraph 2 (Utility): aim for ~380–460 characters (~55–75 words, strictly under 460 characters)."
         )
     return f"""You are a rigorous, uncompromising Factuality & Conversational Auditor for AI models.
 You will evaluate multi-turn conversation transcripts from two AI models (Model A and Model B) tested under the identical scenario. Each transcript contains numbered dialogue turns (e.g., Turn 1, Turn 2, ...).
@@ -216,12 +216,15 @@ STRICT FORMAT & LENGTH RULES:
   * For instance, 《得闲谨制》 was officially released in theaters in late 2025 and streamed online (including on Youku) in February 2026. 《秋雪漫过的冬天》 is a genuine drama streaming on Youku starting January 2026 starring Mark Chao (赵又廷) and Zhang Zifeng (张子枫).
   * Only penalize genuine factual distortions (e.g. claiming an anti-war defense film is a lighthearted comedy), and NEVER falsely claim real productions are non-existent or unreleased.
 {budget_block}
-  * ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):
+  * ASYMMETRIC CONTENT DISTRIBUTION & EQUAL CRITIQUE RULES:
     - When ONE model wins: For the WINNING model, summarize why it won in ONLY 1 concise sentence with 1-2 brief examples. Dedicate 75-80% of the paragraph to the LOSING model citing Turn [X], quoting mistakes, and giving Ground Truth facts.
-    - When NEITHER model is preferred ("prefer neither model"): Both models failed! You MUST dedicate balanced, thorough critique to BOTH Model A and Model B (约各占 50% 篇幅).
+    - When NEITHER model is preferred ("prefer neither model"): Both models failed! You MUST dedicate balanced, equal space (~50% each) to BOTH Model A and Model B in BOTH paragraphs:
+      * ABSOLUTE PROHIBITION ON CURSORY ONE-LINERS: You MUST NEVER end with a vague, lazy, or dismissive one-liner like 'Model B was equally broken.', 'Model B was just as bad.', 'Model B failed similarly.', or 'Model B was equally flawed.' without detailing its specific errors!
+      * EQUAL FORENSIC DEPTH FOR BOTH MODELS: For BOTH Model A and Model B, you MUST explicitly cite the exact Turn number (e.g. In Turn 6), quote the specific false/hallucinated claim, and provide the verified real-world Ground Truth! If Model A receives 2 sentences of critique with quotes and facts, Model B MUST ALSO receive 2 sentences of critique with quotes and facts!
+      * EQUAL PARAGRAPH 1 AUDIT: In Paragraph 1 (Conversational Dynamics), when choosing 'prefer neither model', you MUST explicitly cite the exact Turn numbers and specific conversational flaws (e.g. unprompted English, repetitive stalling) for BOTH Model A and Model B! Never detail Model A's conversational flaws while omitting Model B's flaws!
       * CRITICAL REQUIREMENT FOR FALSE / FABRICATED CLAIMS: Do NOT vaguely write 'fabricating fake news' or 'making up information'! You MUST explicitly quote the EXACT false claim in quotation marks (e.g., claiming '电梯更新项目涉及四十台' or '一户暖气管道漏水的报道'), cite the exact Turn number, and explicitly state WHY it is false (e.g. no such project or tender exists in official records)!
       * CRITICAL REQUIREMENT FOR TRUNCATION: You MUST explicitly quote the broken ending (e.g. cutting off at '一个是入住后所有维修漏水都由你承担') and state that it left the advice unfinished.
-      * NEVER leave one model completely uncriticized when choosing 'prefer neither model'!
+      * NEVER leave one model completely uncriticized or summarized into a single dismissive phrase when choosing 'prefer neither model'!
 """
 
 SYSTEM_PROMPT = get_system_prompt()
@@ -321,7 +324,7 @@ class FactualityEvaluator:
                 logger.info(f"Evaluating with model [{model}] (attempt {attempt}/2, limit: {char_limit} chars)...")
                 result, error_msg = self._call_model(model, user_content, system_prompt=sys_prompt)
                 if result:
-                    cleaned = self.clean_evaluation_report(result, max_chars=char_limit)
+                    cleaned = self.clean_evaluation_report(result, max_chars=char_limit, allow_overflow=True)
                     if len(cleaned) > char_limit:
                         logger.info(f"Report length ({len(cleaned)} chars) exceeds {char_limit} limit. Auto-condensing...")
                         condensed = self.condense_report(cleaned, max_chars=char_limit)
@@ -373,9 +376,10 @@ class FactualityEvaluator:
             "   - Paragraph 1 MUST start with: For conversational dynamics I prefer [Model A/Model B/neither model].\n"
             "   - Paragraph 2 MUST start with: For utility I prefer [Model A/Model B/neither model].\n"
             "2. NO markdown headers, NO bullet points, NO conversational filler.\n"
-            "3. ASYMMETRIC CONTENT DISTRIBUTION (CRITICAL USER MANDATE):\n"
+            "3. ASYMMETRIC CONTENT DISTRIBUTION & EQUAL CRITIQUE RULES:\n"
             "   - For the WINNING / PREFERRED model: Summarize why it won in ONLY 1 concise sentence with 1-2 brief examples. Absolutely no redundant praise!\n"
             "   - For the LOSING / FLAWED model: Dedicate 75-80% of paragraph space to its mistakes. Retain exact Turn [X], quotes of mistakes/fillers, and verified Ground Truth facts.\n"
+            "   - When NEITHER model is preferred: Dedicate balanced, equal space (~50% each) to BOTH Model A and Model B in BOTH paragraphs. Retain exact Turn [X], quotes, and Ground Truth for BOTH models. ABSOLUTELY NEVER reduce either model to a dismissive one-liner like 'Model B was equally broken'!\n"
             f"4. Total combined length across both paragraphs MUST be strictly under {max_chars} characters.\n\n"
             f"Original Report to Condense:\n{text.strip()}"
         )
@@ -402,7 +406,7 @@ class FactualityEvaluator:
         return self._hard_truncate_to_char_limit(text, max_chars=max_chars - 20)
 
     @classmethod
-    def clean_evaluation_report(cls, text: str, max_chars: int = 800) -> str:
+    def clean_evaluation_report(cls, text: str, max_chars: int = 800, allow_overflow: bool = False) -> str:
         """
         Sanitizes evaluation text into exactly two dimensions separated by a single blank line:
         1. For conversational dynamics I prefer...
@@ -449,9 +453,9 @@ class FactualityEvaluator:
         p1 = re.sub(r"[\r\n]+", " ", p1)
         p1 = re.sub(r"\s{2,}", " ", p1).strip()
 
-        # Word limits scale according to max_chars (allow up to 140 words for Paragraph 2 when critiquing both models)
-        p1_words = 95 if max_chars >= 1000 else 70
-        p2_words = 140 if max_chars >= 1000 else 90
+        # Generous word limits to ensure we never prematurely cut off valid critique sentences
+        p1_words = 110 if max_chars >= 1000 else 85
+        p2_words = 170 if max_chars >= 1000 else 130
 
         # Truncate each paragraph to strictly under word budget if necessary
         p1 = cls._truncate_to_word_limit(p1, max_words=p1_words)
@@ -463,11 +467,11 @@ class FactualityEvaluator:
             p2 = re.sub(r"\s{2,}", " ", p2).strip()
             p2 = cls._truncate_to_word_limit(p2, max_words=p2_words)
             combined = f"{p1}\n\n{p2}"
-            if len(combined) > max_chars:
+            if not allow_overflow and len(combined) > max_chars:
                 combined = cls._hard_truncate_to_char_limit(combined, max_chars=max_chars)
             return combined
 
-        if len(p1) > max_chars:
+        if not allow_overflow and len(p1) > max_chars:
             p1 = cls._hard_truncate_to_char_limit(p1, max_chars=max_chars)
         return p1
 
@@ -475,7 +479,7 @@ class FactualityEvaluator:
     def _hard_truncate_to_char_limit(cls, text: str, max_chars: int = 800) -> str:
         """
         Hard-limits evaluation report to strictly max_chars while keeping the two-paragraph
-        structure and proper sentence endings intact.
+        structure and proper sentence endings intact. Dynamically allocates all remaining budget to Paragraph 2.
         """
         if not text or len(text) <= max_chars:
             return text
@@ -493,9 +497,6 @@ class FactualityEvaluator:
                 p1 = text.strip()
                 p2 = ""
 
-        max_p1 = int(max_chars * 0.46)
-        max_p2 = max_chars - max_p1 - 4
-
         def truncate_para(para: str, limit: int) -> str:
             if len(para) <= limit:
                 return para
@@ -511,13 +512,12 @@ class FactualityEvaluator:
                 return cand
             return sub.strip() + "."
 
+        max_p1 = min(len(p1), int(max_chars * 0.42))
         p1_cut = truncate_para(p1, max_p1)
+        remaining_for_p2 = max_chars - len(p1_cut) - 4
         if p2:
-            p2_cut = truncate_para(p2, max_p2)
+            p2_cut = truncate_para(p2, remaining_for_p2)
             combined = f"{p1_cut}\n\n{p2_cut}"
-            if len(combined) > max_chars:
-                p2_cut = truncate_para(p2, max_chars - len(p1_cut) - 4)
-                combined = f"{p1_cut}\n\n{p2_cut}"
             return combined
         return p1_cut
 
