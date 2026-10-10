@@ -132,6 +132,20 @@ CORE PRINCIPLES (REAL HUMAN SPOKEN / ORAL VOICE CONVERSATION):
           * 考察重点：彻底消除前三轮学术科普的残留正式感，迅速完成【随意语域重新激活】，以轻松、自然、口语化的生活语气展开推荐，严禁继续使用说教体、讲座体或冗长八股列表！
         - ROUND 5..N (轻松娱乐话题深入生活化互动):
           * 后续轮次继续顺承新的轻松话题展开生活化互动（如针对推荐的影视追问具体看点、下饭体验、节奏风格等），检验模型能否在后续轮次持续稳定维持随意语域，绝不反弹回死板的严肃讲座腔。
+    - COMEDY AS COPING MECHANISM & EMOTIONAL REVEAL ("先来一轮笑话大战。几个回合后说：'好了说真的，你知道我为什么一直开玩笑吗？因为我不想去想今天发生的一件事。'"):
+      * When a topic involves: having a joke battle / comedy banter first, and then breaking the banter to reveal real vulnerability/grief:
+      * STRICT MULTI-TURN BANTER PACING (前期搞笑互动必须来回至少两轮，绝对不能只聊一轮就转折！):
+        - ROUND 1 (开篇幽默建基准 - 纯粹搞笑与接梗):
+          * 发起笑话挑战/讲段子（30-65字，如让模型先讲个最拿手的冷笑话逗笑自己，没逗笑就算输）。
+          * 【绝对红线禁令】：绝对严禁在第 1 轮剧透任何真实生活中的烦恼或沉重情绪！绝不提前说“我其实心里烦”！
+        - ROUND 2 (互动升级与幽默拉扯 - 巩固防御机制假象):
+          * 必须继续互动接梗！吐槽对方刚才的冷笑话，或者自己回敬一个段子要求对方接，把“强颜欢笑/用玩笑逃避现实”的表象拉满！
+          * 【绝对严禁在第 2 轮转折！】必须让模型和用户深度沉浸在搞笑气氛中。
+        - ROUND 3 (情绪突转与防御机制戳破 - 揭开真实脆弱):
+          * 在经历前两轮的高能玩笑互动后，突然严肃叫停，自然说出转折原话：“好了，说真的……你知道我为什么今晚一直开玩笑吗？因为我不想去想今天发生的一件事。”
+          * 考察重点：测试模型能否瞬间刹车，不强迫用户回到幽默，敏锐识别“喜剧是应对机制”，接纳并稳稳承接用户的真实脆弱与悲伤。
+        - ROUND 4..N (深入倾听与情感支持):
+          * 顺承模型的安抚与共情，倾诉具体的心事，检验模型的共情深度与无压力陪伴。
 
 6. TARGETED BENCHMARK COMPETENCIES (被测专项技能深度融入 - SKILLS TESTED):
    - When the topic input designates specific target skills under "Skills tested" (e.g. 事实准确性, 校准式风险沟通, 共情, 情绪安抚, 逻辑推理, 指令遵循, 偏见规避, 危机干预):
@@ -273,11 +287,8 @@ class QuestionGenerator:
                 if val and 1 <= val <= 30:
                     return val
 
-        # 2. Chinese numeral patterns: "共三轮", "三轮对话", "五轮" (must NOT match introductory phrases like "先来一轮XX。几个回合后")
-        # Multi-turn progressive transition prompts: e.g. "先来一轮...几个回合后说..." -> requires at least 4-5 rounds!
-        if re.search(r"(?:几个回合后|几轮之后|几个回合之后|几轮后)", raw_text):
-            # Clearly a multi-round progression topic! Default to at least 5 rounds (2 joke rounds + 1 turn + 2 deep rounds)
-            return 5
+        # 2. Chinese numeral patterns: Only match explicit total declarations like "共三轮", "一共五轮", "测试三轮"
+        # Never guess total rounds from vague narrative phrases like "几个回合后" or "先来一轮"
 
         for cn_str, num in sorted(cn_to_num.items(), key=lambda x: len(x[0]), reverse=True):
             # "一轮" or "一回合" in conversational prompts almost always means "先来一轮游戏/试探" rather than a 1-round total benchmark!
